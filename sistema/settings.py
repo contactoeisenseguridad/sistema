@@ -26,10 +26,11 @@ ALLOWED_HOSTS = [
 
 
 # 🔴 CSRF FIX
-CSRF_TRUSTED_ORIGINS = os.environ.get(
-    "CSRF_TRUSTED_ORIGINS",
-    ""
-).split(",")
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip()
+    for origin in os.environ.get("CSRF_TRUSTED_ORIGINS", "").split(",")
+    if origin.strip() != ""
+]
 
 
 # 📦 APPS

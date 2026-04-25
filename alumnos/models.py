@@ -4,7 +4,7 @@ from django.db import models
 class Alumno(models.Model):
     nombres = models.CharField(max_length=100)
     apellidos = models.CharField(max_length=100)
-    rut = models.CharField(max_length=20, blank=True, null=True)
+    rut = models.CharField(max_length=12, unique=True)
     direccion = models.CharField(max_length=255)
     comuna = models.CharField(max_length=100, blank=True, null=True)
     correo = models.EmailField()
