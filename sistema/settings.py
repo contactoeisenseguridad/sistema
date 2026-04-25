@@ -16,12 +16,12 @@ DEBUG = config('DEBUG', default=False, cast=bool)
 
 
 # ✅ ALLOWED HOSTS (Railway)
-import os
 
-ALLOWED_HOSTS = os.environ.get(
-    "ALLOWED_HOSTS",
-    "localhost,127.0.0.1"
-).split(",")
+ALLOWED_HOSTS = [
+    "sistema-production-bc4d.up.railway.app",
+    "localhost",
+    "127.0.0.1",
+]
 
 
 # 🔴 CSRF FIX
