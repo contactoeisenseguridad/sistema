@@ -5,7 +5,6 @@ from django.contrib.auth.decorators import login_required, permission_required
 from django.shortcuts import render, get_object_or_404
 from django.http import HttpResponse
 from django.template.loader import get_template
-from weasyprint import HTML
 
 import openpyxl
 
@@ -69,29 +68,7 @@ def detalle_alumno(request, alumno_id):
 def generar_pdf(request, alumno_id):
     alumno = get_object_or_404(Alumno, id=alumno_id)
 
-    template = get_template('alumnos/contrato_pdf.html')
-
-    context = {
-        'alumno': alumno,
-        'fecha': datetime.now(),
-    }
-
-    html_string = template.render(context)
-
-    response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = f'inline; filename="contrato_{alumno.id}.pdf"'
-
-    HTML(string=html_string).write_pdf(response)
-
-    Auditoria.objects.create(
-        usuario=request.user.username,
-        accion="GENERAR PDF",
-        modelo="Alumno",
-        objeto_id=alumno.id,
-        descripcion=f"Se generó el contrato PDF del alumno {alumno.nombres} {alumno.apellidos}"
-    )
-
-    return response
+    return HttpResponse("PDF desactivado temporalmente", status=200)
 
 @login_required
 @permission_required('alumnos.view_alumno', raise_exception=True)
