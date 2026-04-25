@@ -3,6 +3,7 @@ Django settings for sistema project.
 """
 
 from pathlib import Path
+import os
 import dj_database_url
 from decouple import config
 
