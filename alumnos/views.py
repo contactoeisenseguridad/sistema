@@ -68,7 +68,18 @@ def detalle_alumno(request, alumno_id):
 def generar_pdf(request, alumno_id):
     alumno = get_object_or_404(Alumno, id=alumno_id)
 
-    return HttpResponse("PDF desactivado temporalmente", status=200)
+    Auditoria.objects.create(
+        usuario=request.user.username,
+        accion="VER CONTRATO HTML",
+        modelo="Alumno",
+        objeto_id=alumno.id,
+        descripcion=f"Se visualizó el contrato HTML del alumno {alumno.nombres} {alumno.apellidos}"
+    )
+
+    return render(request, 'alumnos/contrato_pdf.html', {
+        'alumno': alumno,
+        'fecha': datetime.now(),
+    })
 
 @login_required
 @permission_required('alumnos.view_alumno', raise_exception=True)
