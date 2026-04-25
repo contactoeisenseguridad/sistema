@@ -5,7 +5,7 @@ from django.contrib.auth.decorators import login_required, permission_required
 from django.shortcuts import render, get_object_or_404
 from django.http import HttpResponse
 from django.template.loader import get_template
-from xhtml2pdf import pisa
+from weasyprint import HTML
 
 import openpyxl
 
@@ -76,21 +76,12 @@ def generar_pdf(request, alumno_id):
         'fecha': datetime.now(),
     }
 
-    html = template.render(context)
+    html_string = template.render(context)
 
     response = HttpResponse(content_type='application/pdf')
     response['Content-Disposition'] = f'inline; filename="contrato_{alumno.id}.pdf"'
 
-    pisa_status = pisa.CreatePDF(
-        html,
-        dest=response
-    )
-
-    if pisa_status.err:
-        return HttpResponse(
-            'Error al generar el PDF',
-            status=500
-        )
+    HTML(string=html_string).write_pdf(response)
 
     Auditoria.objects.create(
         usuario=request.user.username,
@@ -101,7 +92,6 @@ def generar_pdf(request, alumno_id):
     )
 
     return response
-
 
 @login_required
 @permission_required('alumnos.view_alumno', raise_exception=True)
