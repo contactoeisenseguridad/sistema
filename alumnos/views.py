@@ -68,18 +68,38 @@ def detalle_alumno(request, alumno_id):
 def generar_pdf(request, alumno_id):
     alumno = get_object_or_404(Alumno, id=alumno_id)
 
-    Auditoria.objects.create(
-        usuario=request.user.username,
-        accion="INTENTO PDF",
-        modelo="Alumno",
-        objeto_id=alumno.id,
-        descripcion=f"Se intentó generar PDF para {alumno.nombres} {alumno.apellidos}, pero PDF está deshabilitado temporalmente en producción."
+    template = get_template('alumnos/contrato_pdf.html')
+
+    context = {
+        'alumno': alumno,
+        'fecha': datetime.now(),
+    }
+
+    html = template.render(context)
+
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'inline; filename="contrato_{alumno.id}.pdf"'
+
+    pisa_status = pisa.CreatePDF(
+        html,
+        dest=response
     )
 
-    return HttpResponse(
-        "La generación de PDF está deshabilitada temporalmente para el despliegue.",
-        status=200
+    if pisa_status.err:
+        return HttpResponse(
+            'Error al generar el PDF',
+            status=500
+        )
+
+    Auditoria.objects.create(
+        usuario=request.user.username,
+        accion="GENERAR PDF",
+        modelo="Alumno",
+        objeto_id=alumno.id,
+        descripcion=f"Se generó el contrato PDF del alumno {alumno.nombres} {alumno.apellidos}"
     )
+
+    return response
 
 
 @login_required
