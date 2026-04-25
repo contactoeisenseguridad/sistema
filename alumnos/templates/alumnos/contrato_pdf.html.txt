@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Contrato Alumno</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 11px;
+            line-height: 1.4;
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 16px;
+            margin-bottom: 20px;
+        }
+
+        p {
+            text-align: justify;
+            margin-bottom: 8px;
+        }
+
+        .firma {
+            margin-top: 40px;
+        }
+    </style>
+</head>
+<body>
+
+<h1>TÉRMINOS Y CONDICIONES</h1>
+
+<p>
+En Santiago a {{ fecha }}, por una parte, OTEC Uno EIRL, RUT 77.732.362-8,
+representada legalmente por Don Gabriel Andrés Bustos Ortiz, cédula de identidad
+Nro. 16.712.143-8, ambos domiciliados en Alameda Libertador Bernardo O’Higgins 1112,
+Oficina 802, comuna de Santiago, en adelante, OTEC UNO, y por otra,
+Don (ña) {{ alumno.nombres }} {{ alumno.apellidos }},
+cédula nacional Nro. {{ alumno.id }},
+domiciliado en {{ alumno.direccion }},
+comuna {{ alumno.comuna }},
+en adelante EL PARTICIPANTE.
+</p>
+
+<p><strong>Declaran los siguientes términos y condiciones:</strong></p>
+
+<p><strong>1. Veracidad de la Información</strong><br>
+El participante declara que los datos proporcionados son fidedignos, completos y actualizados.
+Cualquier error podrá ser causal de eliminación del curso sin reembolso.
+</p>
+
+<p><strong>2. Medio Oficial de Comunicación</strong><br>
+Toda comunicación se realizará exclusivamente vía correo electrónico.
+El envío constituye notificación válida.
+</p>
+
+<p><strong>3. Alcance del Servicio</strong><br>
+El servicio corresponde únicamente al curso contratado.
+No se garantiza aprobación ni resultados académicos.
+</p>
+
+<p><strong>4. Exámenes</strong><br>
+OTEC UNO no es responsable de procesos externos de examinación.
+</p>
+
+<p><strong>5. Modificaciones</strong><br>
+Los horarios y módulos pueden ser modificados sin previo aviso.
+</p>
+
+<p><strong>6. Acceso a Contenidos</strong><br>
+El material es personal e intransferible.
+</p>
+
+<p><strong>7. No Devoluciones</strong><br>
+No existe devolución una vez realizada la inscripción.
+</p>
+
+<p><strong>8. Conducta</strong><br>
+Cualquier conducta inapropiada será causal de expulsión.
+</p>
+
+<p><strong>9. Propiedad Intelectual</strong><br>
+Todo el contenido es propiedad de OTEC UNO.
+</p>
+
+<p><strong>10. Responsabilidad del Participante</strong><br>
+El alumno es responsable de su conexión, asistencia y participación.
+</p>
+
+<p><strong>11. Fuerza Mayor</strong><br>
+OTEC UNO no responde por interrupciones externas.
+</p>
+
+<p><strong>12. Repetición de Examen</strong><br>
+Solo con certificado médico o defunción.
+</p>
+
+<p><strong>13. Aceptación</strong><br>
+El participante declara haber leído y aceptado todo el contenido.
+</p>
+
+<div class="firma">
+<p><strong>Firma en muestra de aceptación:</strong></p>
+
+<p><strong>Nombre:</strong> {{ alumno.nombres }} {{ alumno.apellidos }}</p>
+<p><strong>RUN:</strong> {{ alumno.id }}</p>
+
+<br><br>
+
+<p>______________________________</p>
+<p>OTEC UNO EIRL</p>
+<p>77.732.362-8</p>
+</div>
+
+</body>
+</html>
