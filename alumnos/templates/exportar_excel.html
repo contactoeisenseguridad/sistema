@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Exportar Excel</title>
+</head>
+<body>
+
+    <h2>Exportar alumnos por grupo</h2>
+
+    <form method="get" action="{% url 'exportar_excel_grupo' %}">
+        <label>Grupo:</label>
+        <input type="text" name="grupo" required>
+
+        <button type="submit">Descargar Excel</button>
+    </form>
+
+</body>
+</html>

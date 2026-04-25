@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Detalle del Alumno</title>
+</head>
+<body>
+
+    <h2>Detalle del Alumno</h2>
+
+    <p><strong>Nombres:</strong> {{ alumno.nombres }}</p>
+    <p><strong>Apellidos:</strong> {{ alumno.apellidos }}</p>
+    <p><strong>RUT:</strong> {{ alumno.rut }}</p>
+    <p><strong>Dirección:</strong> {{ alumno.direccion }}</p>
+    <p><strong>Correo:</strong> {{ alumno.correo }}</p>
+    <p><strong>Teléfono:</strong> {{ alumno.telefono }}</p>
+
+    <h3>Cursos del alumno</h3>
+
+    {% if inscripciones %}
+        <ul>
+            {% for inscripcion in inscripciones %}
+                <li>
+                    <strong>Curso:</strong> {{ inscripcion.curso }} |
+                    <strong>Grupo:</strong> {{ inscripcion.grupo }} |
+                    <strong>Inicio:</strong> {{ inscripcion.fecha_inicio }} |
+                    <strong>Fin:</strong> {{ inscripcion.fecha_fin }} |
+                    <strong>Estado:</strong> {{ inscripcion.estado }}
+                </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>Este alumno no tiene cursos registrados.</p>
+    {% endif %}
+<p>
+    <a href="/alumno/{{ alumno.id }}/pdf/">
+        Descargar contrato en PDF
+    </a>
+</p>
+    <p><a href="/buscar/">Volver a buscar</a></p>
+
+</body>
+</html>

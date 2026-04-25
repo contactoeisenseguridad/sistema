@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Inicio</title>
+</head>
+<body>
+
+<h2>Menú</h2>
+
+<a href="{% url 'buscar_alumno' %}">Búsqueda de Alumnos</a>
+<br><br>
+
+{% if request.user.is_superuser %}
+<a href="{% url 'formulario_exportar_excel' %}">Descargar Grupos</a>
+{% endif %}
+
+</body>
+</html>

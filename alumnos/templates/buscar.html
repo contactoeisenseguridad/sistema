@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Buscar Alumno</title>
+</head>
+<body>
+
+    <h2>Buscar Alumno</h2>
+
+    <form method="get">
+        <input type="text" name="q" placeholder="Apellido o RUT" value="{{ query }}">
+        <button type="submit">Buscar</button>
+    </form>
+
+    <hr>
+
+    {% if alumnos %}
+        <ul>
+            {% for alumno in alumnos %}
+                <li>
+                    <a href="/alumno/{{ alumno.id }}/">
+                        {{ alumno.nombres }} {{ alumno.apellidos }} - {{ alumno.rut }}
+                    </a>
+                </li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+
+</body>
+</html>

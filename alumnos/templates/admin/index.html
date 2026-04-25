@@ -1,0 +1,34 @@
+{% extends "admin/index.html" %}
+
+{% block content %}
+
+<div class="module">
+    <table>
+        <caption>
+            Opciones del sistema
+        </caption>
+
+        <tr>
+            <th scope="row">
+                <a href="{% url 'buscar_alumno' %}">Búsqueda de Alumnos</a>
+            </th>
+            <td></td>
+            <td></td>
+        </tr>
+
+        {% if request.user.is_superuser %}
+        <tr>
+            <th scope="row">
+                <a href="{% url 'formulario_exportar_excel' %}">Descargar Grupos</a>
+            </th>
+            <td></td>
+            <td></td>
+        </tr>
+        {% endif %}
+
+    </table>
+</div>
+
+{{ block.super }}
+
+{% endblock %}
