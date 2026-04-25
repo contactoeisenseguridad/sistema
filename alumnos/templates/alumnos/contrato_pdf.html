@@ -1,116 +1,199 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <title>Contrato Alumno</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            font-size: 11px;
-            line-height: 1.4;
-        }
-
-        h1 {
-            text-align: center;
-            font-size: 16px;
-            margin-bottom: 20px;
-        }
-
-        p {
-            text-align: justify;
-            margin-bottom: 8px;
-        }
-
-        .firma {
-            margin-top: 40px;
-        }
-    </style>
-</head>
-<body>
-
-<h1>TÉRMINOS Y CONDICIONES</h1>
-
-<p>
-En Santiago a {{ fecha }}, por una parte, OTEC Uno EIRL, RUT 77.732.362-8,
-representada legalmente por Don Gabriel Andrés Bustos Ortiz, cédula de identidad
-Nro. 16.712.143-8, ambos domiciliados en Alameda Libertador Bernardo O’Higgins 1112,
-Oficina 802, comuna de Santiago, en adelante, OTEC UNO, y por otra,
-Don (ña) {{ alumno.nombres }} {{ alumno.apellidos }},
-cédula nacional Nro. {{ alumno.id }},
-domiciliado en {{ alumno.direccion }},
-comuna {{ alumno.comuna }},
-en adelante EL PARTICIPANTE.
-</p>
-
-<p><strong>Declaran los siguientes términos y condiciones:</strong></p>
-
-<p><strong>1. Veracidad de la Información</strong><br>
-El participante declara que los datos proporcionados son fidedignos, completos y actualizados.
-Cualquier error podrá ser causal de eliminación del curso sin reembolso.
-</p>
-
-<p><strong>2. Medio Oficial de Comunicación</strong><br>
-Toda comunicación se realizará exclusivamente vía correo electrónico.
-El envío constituye notificación válida.
-</p>
-
-<p><strong>3. Alcance del Servicio</strong><br>
-El servicio corresponde únicamente al curso contratado.
-No se garantiza aprobación ni resultados académicos.
-</p>
-
-<p><strong>4. Exámenes</strong><br>
-OTEC UNO no es responsable de procesos externos de examinación.
-</p>
-
-<p><strong>5. Modificaciones</strong><br>
-Los horarios y módulos pueden ser modificados sin previo aviso.
-</p>
-
-<p><strong>6. Acceso a Contenidos</strong><br>
-El material es personal e intransferible.
-</p>
-
-<p><strong>7. No Devoluciones</strong><br>
-No existe devolución una vez realizada la inscripción.
-</p>
-
-<p><strong>8. Conducta</strong><br>
-Cualquier conducta inapropiada será causal de expulsión.
-</p>
-
-<p><strong>9. Propiedad Intelectual</strong><br>
-Todo el contenido es propiedad de OTEC UNO.
-</p>
-
-<p><strong>10. Responsabilidad del Participante</strong><br>
-El alumno es responsable de su conexión, asistencia y participación.
-</p>
-
-<p><strong>11. Fuerza Mayor</strong><br>
-OTEC UNO no responde por interrupciones externas.
-</p>
-
-<p><strong>12. Repetición de Examen</strong><br>
-Solo con certificado médico o defunción.
-</p>
-
-<p><strong>13. Aceptación</strong><br>
-El participante declara haber leído y aceptado todo el contenido.
-</p>
-
-<div class="firma">
-<p><strong>Firma en muestra de aceptación:</strong></p>
-
-<p><strong>Nombre:</strong> {{ alumno.nombres }} {{ alumno.apellidos }}</p>
-<p><strong>RUN:</strong> {{ alumno.id }}</p>
-
-<br><br>
-
-<p>______________________________</p>
-<p>OTEC UNO EIRL</p>
-<p>77.732.362-8</p>
-</div>
-
-</body>
-</html>
+<h1 style="text-align: center;"><strong>T&Eacute;RMINOS Y CONDICIONES</strong></h1>
+<p>&nbsp;</p>
+<p>En Santiago a {{ fecha }} , por una parte, OTEC Uno EIRL, RUT 77.732.362-8, representada legalmente por Don Gabriel Andr&eacute;s Bustos Ortiz, c&eacute;dula de identidad Nro. 16.712.143-8, ambos domiciliados en Alameda Libertador Bernardo O&rsquo;Higgins 1112, Oficina 802, comuna de Santiago, en adelante, <strong>OTEC UNO</strong>, y por otra, Don (&ntilde;a) {{ alumno.nombres }} {{ alumno.apellidos }}, c&eacute;dula nacional Nro. {{ alumno.rut }}, domiciliado en {{ alumno.direccion}}, comuna {{alumno.comuna}}, en adelante EL PARTICIPANTE. Declaran los siguientes t&eacute;rminos y condiciones:</p>
+<p>Al contratar cualquier curso impartido por&nbsp;<strong>OTEC UNO</strong>, el participante declara haber le&iacute;do, comprendido y aceptado &iacute;ntegramente los siguientes T&eacute;rminos y Condiciones:</p>
+<ol>
+<li><strong> Veracidad de la informaci&oacute;n</strong></li>
+</ol>
+<p>El participante declara expresamente que:</p>
+<ul>
+<li>Los datos personales proporcionados al momento del registro son&nbsp;<strong>fidedignos, completos y actualizados</strong>.</li>
+</ul>
+<ul>
+<li>Es responsable de la exactitud de la informaci&oacute;n ingresada en la plataforma y en el presente registro.</li>
+<li>Cualquier falsedad, omisi&oacute;n o error podr&aacute; ser causal de suspensi&oacute;n o eliminaci&oacute;n del curso, sin derecho a reembolso.</li>
+</ul>
+<ol start="2">
+<li><strong> Medio Oficial de Comunicaci&oacute;n</strong></li>
+</ol>
+<p>El participante:</p>
+<ul>
+<li>Autoriza expresamente que&nbsp;<strong>toda comunicaci&oacute;n oficial</strong>&nbsp;relacionada con el curso, evaluaciones, cambios de horario, instrucciones, certificados u otros aspectos acad&eacute;micos y administrativos se realice&nbsp;<strong>exclusivamente v&iacute;a correo electr&oacute;nico</strong>.</li>
+<li>Es responsable de revisar peri&oacute;dicamente su bandeja de entrada y carpeta de spam.</li>
+<li>Entiende que el env&iacute;o al correo registrado constituye notificaci&oacute;n v&aacute;lida.</li>
+</ul>
+<ol start="3">
+<li><strong> Alcance del Servicio Contratado</strong></li>
+</ol>
+<p>Al contratar el servicio, el participante declara entender que:</p>
+<ul>
+<li>El servicio consiste exclusivamente en la&nbsp;<strong>realizaci&oacute;n del curso cancelado</strong>, conforme al programa acad&eacute;mico publicado.</li>
+<li>OTEC UNO no garantiza la aprobaci&oacute;n del curso ni resultados acad&eacute;micos espec&iacute;ficos.</li>
+<li>La contrataci&oacute;n no incluye tr&aacute;mites personales ante organismos p&uacute;blicos, salvo que se indique expresamente lo contrario.</li>
+</ul>
+<ol start="4">
+<li><strong> Ex&aacute;menes y Procesos de Evaluaci&oacute;n Externa</strong></li>
+</ol>
+<p>El participante:</p>
+<ul>
+<li>Exime expresamente a OTEC UNO de toda responsabilidad por atrasos, reprogramaciones o situaciones administrativas relacionadas con la&nbsp;<strong>toma de ex&aacute;menes ante entidades externas</strong>.</li>
+<li>Entiende que los procesos de examinaci&oacute;n pueden depender de terceros y de normativas vigentes.</li>
+<li>Acepta que el servicio no contempla la obtenci&oacute;n del certificado de examinaci&oacute;n, ya que este es un documento de tramitaci&oacute;n&nbsp;<strong>personal e intransferible</strong>.</li>
+</ul>
+<ol start="5">
+<li><strong> Modificaci&oacute;n de Pauta y Calendario Acad&eacute;mico</strong></li>
+</ol>
+<p>El participante acepta que:</p>
+<ul>
+<li>La pauta de clases, fechas, horarios y orden de m&oacute;dulos podr&aacute; ser modificada por razones acad&eacute;micas, administrativas o normativas.</li>
+<li>No se requerir&aacute; autorizaci&oacute;n adicional del alumno.</li>
+<li>Ser&aacute; suficiente la&nbsp;<strong>exhibici&oacute;n de los cambios en la plataforma web oficial</strong>, lo cual se considerar&aacute; notificaci&oacute;n v&aacute;lida.</li>
+</ul>
+<p>Asimismo, entiende que OTEC UNO no puede modificar listados, horarios o modalidades ya informadas a la autoridad competente (SPD u organismo correspondiente), cuando estos hayan sido oficialmente reportados.</p>
+<ol start="6">
+<li><strong> Acceso a Contenidos</strong></li>
+</ol>
+<p>El participante reconoce que:</p>
+<ul>
+<li>Cada m&oacute;dulo contiene toda la informaci&oacute;n necesaria para su desarrollo.</li>
+<li>El material es de acceso exclusivo desde su sesi&oacute;n personal en la plataforma web.</li>
+<li>No podr&aacute; descargar, distribuir, copiar, reproducir o compartir el contenido sin autorizaci&oacute;n escrita.</li>
+<li>El acceso es personal e intransferible.</li>
+</ul>
+<ol start="7">
+<li><strong> Pol&iacute;tica de No Devoluci&oacute;n</strong></li>
+</ol>
+<p>El participante acepta que:</p>
+<ul>
+<li>Una vez realizado el pago del curso y formalizada la inscripci&oacute;n en la plataforma,&nbsp;<strong>no podr&aacute; solicitar devoluci&oacute;n alguna bajo ninguna circunstancia</strong>.</li>
+<li>El pago implica reserva de cupo y disponibilidad docente.</li>
+<li>La inasistencia voluntaria no genera derecho a reembolso.</li>
+</ul>
+<ol start="8">
+<li><strong> Conducta y Buen Trato</strong></li>
+</ol>
+<p>El participante entiende y acepta que:</p>
+<ul>
+<li>Debe mantener una conducta respetuosa hacia el personal administrativo, relatores y dem&aacute;s participantes.</li>
+<li>Cualquier falta de respeto, agresi&oacute;n verbal, amenazas, difamaci&oacute;n o conducta inapropiada &mdash;ya sea presencial, por correo electr&oacute;nico, mensajer&iacute;a, redes sociales o cualquier otro medio&mdash; podr&aacute; ser causal de:</li>
+<ul>
+<li>Expulsi&oacute;n inmediata del curso.</li>
+<li>Declaraci&oacute;n de inasistencia en m&oacute;dulos pendientes.</li>
+<li>Baja en la instancia de examinaci&oacute;n, si corresponde.</li>
+<li>Eliminaci&oacute;n del acceso a la plataforma.</li>
+</ul>
+<li>Estas medidas no dar&aacute;n derecho a devoluci&oacute;n de dinero.</li>
+</ul>
+<ol start="9">
+<li><strong> Propiedad Intelectual</strong></li>
+</ol>
+<p>Todo el material acad&eacute;mico, presentaciones, documentos, evaluaciones y recursos digitales son propiedad intelectual de OTEC UNO o sus relatores.</p>
+<p>Se proh&iacute;be su reproducci&oacute;n, distribuci&oacute;n o uso comercial sin autorizaci&oacute;n expresa.</p>
+<ol start="10">
+<li><strong> Responsabilidad del Participante y Condiciones de Acceso</strong></li>
+</ol>
+<p>Ser&aacute; exclusiva responsabilidad del alumno:</p>
+<ol>
+<li>a) Contar con conexi&oacute;n a internet adecuada, dispositivo compatible, energ&iacute;a el&eacute;ctrica, navegador actualizado y dem&aacute;s condiciones t&eacute;cnicas necesarias para participar en las actividades formativas en modalidad online, telem&aacute;tica, e-learning o similares.</li>
+<li>b) Ingresar oportunamente a la plataforma y a las clases sincr&oacute;nicas, cuando corresponda, utilizando sus credenciales personales de acceso.</li>
+<li>c) Cumplir con la asistencia m&iacute;nima exigida, participaci&oacute;n y evaluaciones en los plazos y condiciones establecidos por OTEC UNO y/o por la normativa aplicable.</li>
+<li>d) En caso de cursos con asistencia virtual o telem&aacute;tica, el alumno reconoce y acepta que su conexi&oacute;n, permanencia, puntualidad, visualizaci&oacute;n de contenidos, acceso a clases, participaci&oacute;n y seguimiento del curso son de su exclusiva responsabilidad, no pudiendo imputar a OTEC UNO incumplimientos derivados de problemas propios de conectividad, configuraci&oacute;n, uso de dispositivos o desconocimiento de la plataforma.</li>
+<li>e) En caso de extrav&iacute;o, olvido o bloqueo de su nombre de usuario y/o contrase&ntilde;a, el alumno declara conocer y aceptar que la plataforma dispone de mecanismos propios de autoatenci&oacute;n y recuperaci&oacute;n de acceso, tales como recuperaci&oacute;n de contrase&ntilde;a, restablecimiento de acceso o validaci&oacute;n mediante correo electr&oacute;nico registrado. Ser&aacute; responsabilidad del alumno utilizar dichos mecanismos de forma oportuna.</li>
+<li>f) El alumno declara conocer que, una vez matriculado, los canales oficiales de comunicaci&oacute;n con OTEC UNO para consultas acad&eacute;micas, administrativas o t&eacute;cnicas ser&aacute;n exclusivamente:</li>
+</ol>
+<ul>
+<li>el correo electr&oacute;nico contacto@otecuno.cl, y/o</li>
+<li>los foros oficiales habilitados dentro del curso o plataforma.</li>
+</ul>
+<ol>
+<li>g) OTEC UNO no se obliga a responder, gestionar ni dar por v&aacute;lidas comunicaciones efectuadas por medios distintos a los anteriormente se&ntilde;alados, salvo que expresamente as&iacute; lo determine.</li>
+<li><strong> Fuerza Mayor</strong></li>
+</ol>
+<p>OTEC UNO no ser&aacute; responsable por interrupciones derivadas de:</p>
+<ul>
+<li>Fallas de internet.</li>
+<li>Problemas t&eacute;cnicos externos.</li>
+<li>Eventos de fuerza mayor.</li>
+<li>Cambios normativos impuestos por la autoridad.</li>
+</ul>
+<ol start="12">
+<li><strong> De la repetici&oacute;n de examinaci&oacute;n</strong></li>
+</ol>
+<p>Al marcar la casilla de aceptaci&oacute;n o completar el proceso de inscripci&oacute;n, el participante declara que:</p>
+<ul>
+<li>Entiende que la normativa actual solo acepta como justificativo para la repetici&oacute;n de los ex&aacute;menes:</li>
+<ul>
+<li>Certificado m&eacute;dico o licencia m&eacute;dica que indique o atraviese la fecha de examen.</li>
+<li>Certificado de defunci&oacute;n de un familiar directo.</li>
+</ul>
+</ul>
+<ol start="13">
+<li><strong> Aceptaci&oacute;n Total</strong></li>
+</ol>
+<p>Al firmar la casilla de aceptaci&oacute;n o completar el proceso de inscripci&oacute;n, el participante declara que:</p>
+<ul>
+<li>Ha le&iacute;do &iacute;ntegramente estos T&eacute;rminos y Condiciones.</li>
+<li>Los comprende en su totalidad.</li>
+<li>Los acepta sin reservas.</li>
+<li>Cualquier falsedad, omisi&oacute;n o error podr&aacute; ser causal de suspensi&oacute;n o eliminaci&oacute;n del curso, sin derecho a reembolso.</li>
+</ul>
+<p>&nbsp;</p>
+<table width="595">
+<tbody>
+<tr>
+<td colspan="3" width="595">
+<p>Firma en muestra de aceptaci&oacute;n total:</p>
+</td>
+</tr>
+<tr>
+<td width="96">
+<p>Nombre</p>
+</td>
+<td width="19">
+<p>:</p>
+</td>
+<td width="479">
+<p>{{ alumno.nombres }} {{ alumno.apellidos }}</p>
+</td>
+</tr>
+<tr>
+<td width="96">
+<p>Run</p>
+</td>
+<td width="19">
+<p>:</p>
+</td>
+<td width="479">
+<p>{{ alumno.rut }}</p>
+</td>
+</tr>
+<tr>
+<td width="96">
+<p>Usuario</p>
+</td>
+<td width="19">
+<p>:</p>
+</td>
+<td width="479">
+<p>&nbsp;</p>
+</td>
+</tr>
+<tr>
+<td width="96">
+<p>Contrase&ntilde;a</p>
+</td>
+<td width="19">
+<p>:</p>
+</td>
+<td width="479">
+<p>&nbsp;</p>
+</td>
+</tr>
+</tbody>
+</table>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p style="text-align: center;"><strong>OTEC UNO&nbsp; EIRL</strong></p>
+<p style="text-align: center;"><strong>77.732.362-8</strong></p>
+<!--a=1-->
