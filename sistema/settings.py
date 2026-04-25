@@ -10,14 +10,20 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 # 🔐 SEGURIDAD
-SECRET_KEY = 'django-insecure-y9#4c7rnw-_rd6kg+dum@*x_rool*9$fr+cblp*fjdf)hrzcdz'
+SECRET_KEY = config('SECRET_KEY', default='unsafe-secret-key')
 
-DEBUG = config('DEBUG', default=True, cast=bool)
-
-ALLOWED_HOSTS = ['*']
+DEBUG = config('DEBUG', default=False, cast=bool)
 
 
-# 🔴 CSRF FIX (IMPORTANTE)
+# ✅ ALLOWED HOSTS (Railway)
+ALLOWED_HOSTS = config(
+    'ALLOWED_HOSTS',
+    default='',
+    cast=lambda v: [s.strip() for s in v.split(',') if s.strip()]
+)
+
+
+# 🔴 CSRF FIX
 CSRF_TRUSTED_ORIGINS = config(
     'CSRF_TRUSTED_ORIGINS',
     default='',
@@ -114,3 +120,10 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # 🔐 LOGIN
 LOGIN_URL = '/admin/login/'
+
+
+# 🔒 SEGURIDAD ADICIONAL (IMPORTANTE EN RAILWAY HTTPS)
+CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_SECURE = True
+
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
