@@ -16,19 +16,19 @@ DEBUG = config('DEBUG', default=False, cast=bool)
 
 
 # ✅ ALLOWED HOSTS (Railway)
-ALLOWED_HOSTS = config(
-    'ALLOWED_HOSTS',
-    default='',
-    cast=lambda v: [s.strip() for s in v.split(',') if s.strip()]
-)
+import os
+
+ALLOWED_HOSTS = os.environ.get(
+    "ALLOWED_HOSTS",
+    "localhost,127.0.0.1"
+).split(",")
 
 
 # 🔴 CSRF FIX
-CSRF_TRUSTED_ORIGINS = config(
-    'CSRF_TRUSTED_ORIGINS',
-    default='',
-    cast=lambda v: [s.strip() for s in v.split(',') if s.strip()]
-)
+CSRF_TRUSTED_ORIGINS = os.environ.get(
+    "CSRF_TRUSTED_ORIGINS",
+    ""
+).split(",")
 
 
 # 📦 APPS
