@@ -7,7 +7,6 @@ from django.http import HttpResponse
 from django.template.loader import get_template
 
 import openpyxl
-from xhtml2pdf import pisa
 
 from .models import Alumno, Inscripcion, Auditoria
 
@@ -69,41 +68,18 @@ def detalle_alumno(request, alumno_id):
 def generar_pdf(request, alumno_id):
     alumno = get_object_or_404(Alumno, id=alumno_id)
 
-    if not request.user.has_perm('alumnos.view_alumno'):
-        return HttpResponse("No autorizado", status=403)
-
-    inscripciones = alumno.inscripciones.all()
-
-    now = datetime.now()
-    fecha = now.strftime("%d-%m-%Y")
-    hora = now.strftime("%H:%M")
-
-    template = get_template('contrato.html')
-    html = template.render({
-        'alumno': alumno,
-        'inscripciones': inscripciones,
-        'fecha': fecha,
-        'hora': hora
-    })
-
-    resultado = BytesIO()
-    pdf = pisa.pisaDocument(BytesIO(html.encode("utf-8")), resultado)
-
-    if pdf.err:
-        return HttpResponse("Error al generar PDF", status=500)
-
-    response = HttpResponse(resultado.getvalue(), content_type='application/pdf')
-    response['Content-Disposition'] = f'attachment; filename="contrato_{alumno.id}.pdf"'
-
     Auditoria.objects.create(
         usuario=request.user.username,
-        accion="GENERAR PDF",
+        accion="INTENTO PDF",
         modelo="Alumno",
         objeto_id=alumno.id,
-        descripcion=f"Se generó el contrato PDF del alumno {alumno.nombres} {alumno.apellidos}"
+        descripcion=f"Se intentó generar PDF para {alumno.nombres} {alumno.apellidos}, pero PDF está deshabilitado temporalmente en producción."
     )
 
-    return response
+    return HttpResponse(
+        "La generación de PDF está deshabilitada temporalmente para el despliegue.",
+        status=200
+    )
 
 
 @login_required
