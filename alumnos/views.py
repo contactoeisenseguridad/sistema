@@ -141,3 +141,72 @@ def exportar_excel_grupo(request):
     )
 
     return response
+
+@login_required
+@permission_required('alumnos.add_alumno', raise_exception=True)
+def carga_masiva_alumnos(request):
+    resultado = None
+
+    if request.method == 'POST' and request.FILES.get('archivo'):
+        archivo = request.FILES['archivo']
+        wb = openpyxl.load_workbook(archivo)
+        ws = wb.active
+
+        creados = 0
+        actualizados = 0
+        inscripciones_creadas = 0
+        errores = []
+
+        encabezados = [cell.value for cell in ws[1]]
+
+        for idx, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
+            datos = dict(zip(encabezados, row))
+
+            try:
+                rut = str(datos.get('rut') or '').strip().upper()
+
+                if not rut:
+                    errores.append(f"Fila {idx}: RUT vacío")
+                    continue
+
+                alumno, creado = Alumno.objects.update_or_create(
+                    rut=rut,
+                    defaults={
+                        'apellidos': datos.get('apellidos') or '',
+                        'nombres': datos.get('nombres') or '',
+                        'correo': datos.get('correo') or '',
+                        'direccion': datos.get('direccion') or '',
+                        'comuna': datos.get('comuna') or '',
+                        'telefono': datos.get('telefono') or '',
+                    }
+                )
+
+                if creado:
+                    creados += 1
+                else:
+                    actualizados += 1
+
+                curso = datos.get('curso') or ''
+                grupo = datos.get('grupo') or ''
+
+                if curso and grupo:
+                    Inscripcion.objects.get_or_create(
+                        alumno=alumno,
+                        curso=curso,
+                        grupo=grupo
+                    )
+                    inscripciones_creadas += 1
+
+            except Exception as e:
+                errores.append(f"Fila {idx}: {str(e)}")
+
+        resultado = {
+            'creados': creados,
+            'actualizados': actualizados,
+            'inscripciones_creadas': inscripciones_creadas,
+            'errores': errores,
+        }
+
+    return render(request, 'carga_masiva.html', {
+        'resultado': resultado
+    })
