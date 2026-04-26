@@ -1,17 +1,47 @@
-<head>
-    <title>Inicio</title>
-    <link rel="icon" href="/static/favicon.ico">
-</head>
-
 {% extends "admin/index.html" %}
+
+{% block extrahead %}
+{{ block.super }}
+<link rel="icon" href="/static/favicon.ico">
+{% endblock %}
 
 {% block content %}
 
-<div class="module">
+<style>
+    .opciones-sistema {
+        width: 100%;
+        margin-bottom: 25px;
+    }
+
+    .opciones-sistema table {
+        width: 100%;
+    }
+
+    .btn-volver {
+        background: #417690;
+        color: white;
+        padding: 8px 12px;
+        text-decoration: none;
+        border-radius: 4px;
+        font-weight: bold;
+    }
+
+    .btn-volver:hover {
+        background: #2e5a70;
+    }
+</style>
+
+<!-- 🔵 BOTÓN SISTEMA PRINCIPAL -->
+<div style="margin-bottom: 20px;">
+    <a href="{% url 'inicio' %}" class="btn-volver">
+        ← Ingreso al sistema principal
+    </a>
+</div>
+
+<!-- 🔵 OPCIONES DEL SISTEMA -->
+<div class="module opciones-sistema">
     <table>
-        <caption>
-            Opciones del sistema
-        </caption>
+        <caption>Opciones del sistema</caption>
 
         <tr>
             <th scope="row">
@@ -30,7 +60,6 @@
             <td></td>
         </tr>
         {% endif %}
-
     </table>
 </div>
 

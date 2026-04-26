@@ -6,6 +6,7 @@ from pathlib import Path
 import os
 import dj_database_url
 from decouple import config
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
