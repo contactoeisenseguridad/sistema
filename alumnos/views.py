@@ -240,3 +240,13 @@ def carga_masiva_alumnos(request):
     return render(request, 'carga_masiva.html', {
         'resultado': resultado
     })
+
+from .models import Aviso
+
+@login_required
+def inicio(request):
+    aviso = Aviso.objects.filter(activo=True).order_by('-fecha').first()
+
+    return render(request, 'inicio.html', {
+        'aviso': aviso
+    })

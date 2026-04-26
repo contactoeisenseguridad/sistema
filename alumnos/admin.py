@@ -1,6 +1,8 @@
 from django.contrib import admin
 from .models import Alumno, Inscripcion, Auditoria
+from .models import Aviso
 
+admin.site.register(Aviso)
 
 class InscripcionInline(admin.TabularInline):
     model = Inscripcion
