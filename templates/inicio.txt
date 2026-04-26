@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Inicio</title>
+    <link rel="icon" href="/static/favicon.ico">
+</head>
+<body>
+
+<h1>Menú</h1>
+
+<a href="/buscar/">Búsqueda de Alumnos</a><br><br>
+<a href="/exportar-excel/formulario/">Descargar Grupos</a>
+
+</body>
+</html>
