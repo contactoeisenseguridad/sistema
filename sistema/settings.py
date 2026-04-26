@@ -20,6 +20,7 @@ DEBUG = config('DEBUG', default=False, cast=bool)
 
 ALLOWED_HOSTS = [
     "sistema-production-bc4d.up.railway.app",
+    "sistema.otecuno.app",
     "localhost",
     "127.0.0.1",
 ]
