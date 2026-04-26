@@ -31,7 +31,13 @@ def buscar_alumno(request):
             apellidos__icontains=query
         ) | Alumno.objects.filter(
             rut__icontains=query
+        ) | Alumno.objects.filter(
+            nombres__icontains=query
+        ) | Alumno.objects.filter(
+            inscripciones__grupo__icontains=query
         )
+
+        alumnos = alumnos.distinct()
 
         Auditoria.objects.create(
             usuario=request.user.username,
@@ -45,7 +51,6 @@ def buscar_alumno(request):
         'alumnos': alumnos,
         'query': query
     })
-
 
 @login_required
 @permission_required('alumnos.view_alumno', raise_exception=True)
