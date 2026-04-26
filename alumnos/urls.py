@@ -6,6 +6,7 @@ from .views import (
     generar_pdf,
     formulario_exportar_excel,
     exportar_excel_grupo,
+    carga_masiva_alumnos,
 )
 
 urlpatterns = [
@@ -17,4 +18,6 @@ urlpatterns = [
 
     path('exportar-excel/formulario/', formulario_exportar_excel, name='formulario_exportar_excel'),
     path('exportar-excel/', exportar_excel_grupo, name='exportar_excel_grupo'),
+
+    path('carga-masiva/', carga_masiva_alumnos, name='carga_masiva_alumnos'),
 ]

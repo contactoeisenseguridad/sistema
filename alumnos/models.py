@@ -34,7 +34,11 @@ class Alumno(models.Model):
 
 
 class Inscripcion(models.Model):
-    alumno = models.ForeignKey(Alumno, on_delete=models.CASCADE, related_name='inscripciones')
+    alumno = models.ForeignKey(
+        Alumno,
+        on_delete=models.CASCADE,
+        related_name='inscripciones'
+    )
     curso = models.CharField(max_length=100)
     grupo = models.CharField(max_length=50)
     fecha_inicio = models.DateField(blank=True, null=True)

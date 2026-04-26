@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Carga Masiva</title>
+</head>
+<body>
+
+<h2>Carga Masiva de Alumnos</h2>
+
+<form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    <input type="file" name="archivo" required>
+    <button type="submit">Subir Excel</button>
+</form>
+
+{% if resultado %}
+    <h3>Resultado</h3>
+    <p>Creados: {{ resultado.creados }}</p>
+    <p>Actualizados: {{ resultado.actualizados }}</p>
+    <p>Inscripciones: {{ resultado.inscripciones_creadas }}</p>
+
+    {% if resultado.errores %}
+        <h4>Errores:</h4>
+        <ul>
+            {% for e in resultado.errores %}
+                <li>{{ e }}</li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+{% endif %}
+
+</body>
+</html>
