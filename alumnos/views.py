@@ -1,14 +1,18 @@
 from datetime import datetime
-from io import BytesIO
 
 from django.contrib.auth.decorators import login_required, permission_required
 from django.shortcuts import render, get_object_or_404
 from django.http import HttpResponse
-from django.template.loader import get_template
 
 import openpyxl
 
 from .models import Alumno, Inscripcion, Auditoria
+
+
+def limpiar(valor):
+    if valor is None:
+        return ''
+    return str(valor).strip()
 
 
 @login_required
@@ -81,6 +85,7 @@ def generar_pdf(request, alumno_id):
         'fecha': datetime.now(),
     })
 
+
 @login_required
 @permission_required('alumnos.view_alumno', raise_exception=True)
 def formulario_exportar_excel(request):
@@ -142,6 +147,7 @@ def exportar_excel_grupo(request):
 
     return response
 
+
 @login_required
 @permission_required('alumnos.add_alumno', raise_exception=True)
 def carga_masiva_alumnos(request):
@@ -157,13 +163,16 @@ def carga_masiva_alumnos(request):
         inscripciones_creadas = 0
         errores = []
 
-        encabezados = [cell.value for cell in ws[1]]
+        encabezados = [
+            limpiar(cell.value).lower()
+            for cell in ws[1]
+        ]
 
         for idx, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
             datos = dict(zip(encabezados, row))
 
             try:
-                rut = str(datos.get('rut') or '').strip().upper()
+                rut = limpiar(datos.get('rut')).upper()
 
                 if not rut:
                     errores.append(f"Fila {idx}: RUT vacío")
@@ -172,12 +181,12 @@ def carga_masiva_alumnos(request):
                 alumno, creado = Alumno.objects.update_or_create(
                     rut=rut,
                     defaults={
-                        'apellidos': datos.get('apellidos') or '',
-                        'nombres': datos.get('nombres') or '',
-                        'correo': datos.get('correo') or '',
-                        'direccion': datos.get('direccion') or '',
-                        'comuna': datos.get('comuna') or '',
-                        'telefono': datos.get('telefono') or '',
+                        'apellidos': limpiar(datos.get('apellidos')),
+                        'nombres': limpiar(datos.get('nombres')),
+                        'correo': limpiar(datos.get('correo')),
+                        'direccion': limpiar(datos.get('direccion')),
+                        'comuna': limpiar(datos.get('comuna')),
+                        'telefono': limpiar(datos.get('telefono')),
                     }
                 )
 
@@ -186,19 +195,35 @@ def carga_masiva_alumnos(request):
                 else:
                     actualizados += 1
 
-                curso = datos.get('curso') or ''
-                grupo = datos.get('grupo') or ''
+                curso = limpiar(datos.get('curso'))
+                grupo = limpiar(datos.get('grupo'))
 
                 if curso and grupo:
-                    Inscripcion.objects.get_or_create(
+                    _, inscripcion_creada = Inscripcion.objects.get_or_create(
                         alumno=alumno,
                         curso=curso,
-                        grupo=grupo
+                        grupo=grupo,
+                        defaults={
+                            'fecha_inicio': datos.get('fecha_inicio') or None,
+                            'fecha_fin': datos.get('fecha_fin') or None,
+                            'estado': limpiar(datos.get('estado')),
+                            'observaciones': limpiar(datos.get('observaciones')),
+                        }
                     )
-                    inscripciones_creadas += 1
+
+                    if inscripcion_creada:
+                        inscripciones_creadas += 1
 
             except Exception as e:
                 errores.append(f"Fila {idx}: {str(e)}")
+
+        Auditoria.objects.create(
+            usuario=request.user.username,
+            accion="CARGA MASIVA",
+            modelo="Alumno",
+            objeto_id=0,
+            descripcion=f"Carga masiva: {creados} creados, {actualizados} actualizados, {inscripciones_creadas} inscripciones creadas."
+        )
 
         resultado = {
             'creados': creados,
