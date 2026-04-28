@@ -40,7 +40,7 @@ class GrupoAlumnoFilter(admin.SimpleListFilter):
 @admin.register(Alumno)
 class AlumnoAdmin(admin.ModelAdmin):
     list_display = ('nombres', 'apellidos', 'rut', 'grupo_actual', 'correo')
-    search_fields = ('nombres', 'apellidos', 'rut', 'correo')
+    search_fields = ('nombres', 'apellidos', 'rut', 'grupo_actual', 'correo')
     list_filter = (GrupoAlumnoFilter,)
     list_per_page = 100
     ordering = ('apellidos', 'nombres')
