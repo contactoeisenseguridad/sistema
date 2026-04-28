@@ -10,23 +10,54 @@ class InscripcionInline(admin.TabularInline):
     extra = 1
 
 
+class GrupoAlumnoFilter(admin.SimpleListFilter):
+    title = 'Grupo'
+    parameter_name = 'grupo'
+
+    def lookups(self, request, model_admin):
+        grupos = (
+            Inscripcion.objects
+            .exclude(grupo__isnull=True)
+            .exclude(grupo='')
+            .values_list('grupo', flat=True)
+            .distinct()
+            .order_by('grupo')
+        )
+        return [(grupo, grupo) for grupo in grupos]
+
+    def queryset(self, request, queryset):
+        if self.value():
+            alumnos_ids = (
+                Inscripcion.objects
+                .filter(grupo=self.value())
+                .values_list('alumno_id', flat=True)
+            )
+            return queryset.filter(id__in=alumnos_ids)
+
+        return queryset
+
+
 @admin.register(Alumno)
 class AlumnoAdmin(admin.ModelAdmin):
     list_display = ('nombres', 'apellidos', 'rut', 'grupo_actual', 'correo')
     search_fields = ('nombres', 'apellidos', 'rut', 'correo')
-    list_filter = ('inscripcion__grupo',)
+    list_filter = (GrupoAlumnoFilter,)
     list_per_page = 100
     ordering = ('apellidos', 'nombres')
     inlines = [InscripcionInline]
 
     def grupo_actual(self, obj):
-        inscripcion = obj.inscripcion_set.order_by('-fecha_inicio').first()
+        inscripcion = (
+            Inscripcion.objects
+            .filter(alumno=obj)
+            .order_by('-fecha_inicio')
+            .first()
+        )
         if inscripcion:
             return inscripcion.grupo
         return '-'
 
     grupo_actual.short_description = 'Grupo'
-    grupo_actual.admin_order_field = 'inscripcion__grupo'
 
     def has_change_permission(self, request, obj=None):
         if request.user.is_superuser:
