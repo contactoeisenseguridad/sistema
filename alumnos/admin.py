@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django.db.models import OuterRef, Subquery, Q
 from .models import Alumno, Inscripcion, Auditoria, Aviso
 
 
@@ -40,34 +41,54 @@ class GrupoAlumnoFilter(admin.SimpleListFilter):
 @admin.register(Alumno)
 class AlumnoAdmin(admin.ModelAdmin):
     list_display = ('nombres', 'apellidos', 'rut', 'grupo_actual', 'correo')
-    search_fields = ('nombres', 'apellidos', 'rut', 'grupo_actual', 'correo')
+    search_fields = ('nombres', 'apellidos', 'rut', 'correo')
     list_filter = (GrupoAlumnoFilter,)
     list_per_page = 100
     ordering = ('apellidos', 'nombres')
     inlines = [InscripcionInline]
 
-    def grupo_actual(self, obj):
-        inscripcion = (
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+
+        ultima_inscripcion = (
             Inscripcion.objects
-            .filter(alumno=obj)
+            .filter(alumno=OuterRef('pk'))
             .order_by('-fecha_inicio')
-            .first()
         )
-        if inscripcion:
-            return inscripcion.grupo
-        return '-'
+
+        return qs.annotate(
+            grupo_orden=Subquery(ultima_inscripcion.values('grupo')[:1])
+        )
+
+    def grupo_actual(self, obj):
+        return obj.grupo_orden or '-'
 
     grupo_actual.short_description = 'Grupo'
+    grupo_actual.admin_order_field = 'grupo_orden'
+
+    def get_search_results(self, request, queryset, search_term):
+        queryset, use_distinct = super().get_search_results(
+            request,
+            queryset,
+            search_term
+        )
+
+        if search_term:
+            alumnos_por_grupo = Inscripcion.objects.filter(
+                grupo__icontains=search_term
+            ).values_list('alumno_id', flat=True)
+
+            queryset |= self.model.objects.filter(
+                id__in=alumnos_por_grupo
+            )
+
+        return queryset, use_distinct
 
     def has_change_permission(self, request, obj=None):
-        if request.user.is_superuser:
-            return True
-        return False
+        return request.user.is_superuser
 
     def has_delete_permission(self, request, obj=None):
-        if request.user.is_superuser:
-            return True
-        return False
+        return request.user.is_superuser
 
     def save_model(self, request, obj, form, change):
         super().save_model(request, obj, form, change)
