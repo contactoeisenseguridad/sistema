@@ -1,5 +1,7 @@
 from django.contrib import admin
-from django.db.models import OuterRef, Subquery, Q
+from django.db.models import OuterRef, Subquery
+from django.utils.html import format_html
+from django.http import HttpResponseRedirect
 from .models import Alumno, Inscripcion, Auditoria, Aviso
 
 
@@ -47,6 +49,20 @@ class AlumnoAdmin(admin.ModelAdmin):
     ordering = ('apellidos', 'nombres')
     inlines = [InscripcionInline]
 
+    # 🔥 BOTÓN FICHA
+    readonly_fields = ('ficha_alumno',)
+
+    def ficha_alumno(self, obj):
+        if obj.id:
+            return format_html(
+                '<a class="button" href="/alumno/{}/" target="_blank">🔎 Ver ficha / Generar contrato</a>',
+                obj.id
+            )
+        return "Primero debe guardar el alumno."
+
+    ficha_alumno.short_description = "Ficha del alumno"
+
+    # 🔵 QUERY OPTIMIZADA (tu código intacto)
     def get_queryset(self, request):
         qs = super().get_queryset(request)
 
@@ -66,6 +82,7 @@ class AlumnoAdmin(admin.ModelAdmin):
     grupo_actual.short_description = 'Grupo'
     grupo_actual.admin_order_field = 'grupo_orden'
 
+    # 🔍 BÚSQUEDA POR GRUPO (tu código intacto)
     def get_search_results(self, request, queryset, search_term):
         queryset, use_distinct = super().get_search_results(
             request,
@@ -84,12 +101,14 @@ class AlumnoAdmin(admin.ModelAdmin):
 
         return queryset, use_distinct
 
+    # 🔒 PERMISOS
     def has_change_permission(self, request, obj=None):
         return request.user.is_superuser
 
     def has_delete_permission(self, request, obj=None):
         return request.user.is_superuser
 
+    # 🧾 AUDITORÍA + 🔥 REDIRECCIÓN AUTOMÁTICA
     def save_model(self, request, obj, form, change):
         super().save_model(request, obj, form, change)
 
@@ -101,6 +120,10 @@ class AlumnoAdmin(admin.ModelAdmin):
                 objeto_id=obj.id,
                 descripcion=f"Se creó el alumno {obj.nombres} {obj.apellidos}, RUT {obj.rut}"
             )
+
+    # 🔥 REDIRECCIÓN AUTOMÁTICA DESPUÉS DE CREAR
+    def response_add(self, request, obj, post_url_continue=None):
+        return HttpResponseRedirect(f"/alumno/{obj.id}/")
 
 
 @admin.register(Inscripcion)
@@ -118,14 +141,10 @@ class InscripcionAdmin(admin.ModelAdmin):
     ordering = ('-fecha_inicio', 'grupo', 'alumno__apellidos')
 
     def has_change_permission(self, request, obj=None):
-        if request.user.is_superuser:
-            return True
-        return False
+        return request.user.is_superuser
 
     def has_delete_permission(self, request, obj=None):
-        if request.user.is_superuser:
-            return True
-        return False
+        return request.user.is_superuser
 
     def save_model(self, request, obj, form, change):
         super().save_model(request, obj, form, change)
