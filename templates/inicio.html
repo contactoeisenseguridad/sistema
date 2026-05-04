@@ -6,6 +6,21 @@
 </head>
 <body>
 
+<!-- 🟡 CINTA DE AVISO -->
+{% if aviso %}
+<div style="
+    width:100%;
+    background:#ffc107;
+    color:black;
+    padding:12px;
+    margin-bottom:20px;
+    border-left:5px solid #ff9800;
+">
+    <strong>{{ aviso.titulo }}</strong><br>
+    {{ aviso.contenido }}
+</div>
+{% endif %}
+
 <h1>Menú</h1>
 
 <!-- 🔵 BOTÓN ADMIN -->

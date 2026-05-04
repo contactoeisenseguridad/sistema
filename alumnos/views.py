@@ -6,7 +6,7 @@ from django.http import HttpResponse
 
 import openpyxl
 
-from .models import Alumno, Inscripcion, Auditoria
+from .models import Alumno, Inscripcion, Auditoria, Aviso
 
 
 def limpiar(valor):
@@ -15,11 +15,17 @@ def limpiar(valor):
     return str(valor).strip()
 
 
+# 🔵 INICIO CON AVISO
 @login_required
 def inicio(request):
-    return render(request, 'inicio.html')
+    aviso = Aviso.objects.last()  # último aviso creado
+
+    return render(request, 'inicio.html', {
+        'aviso': aviso
+    })
 
 
+# 🔍 BUSCAR ALUMNO
 @login_required
 @permission_required('alumnos.view_alumno', raise_exception=True)
 def buscar_alumno(request):
@@ -52,6 +58,8 @@ def buscar_alumno(request):
         'query': query
     })
 
+
+# 📄 DETALLE ALUMNO
 @login_required
 @permission_required('alumnos.view_alumno', raise_exception=True)
 def detalle_alumno(request, alumno_id):
@@ -72,6 +80,7 @@ def detalle_alumno(request, alumno_id):
     })
 
 
+# 🧾 GENERAR PDF (HTML)
 @login_required
 @permission_required('alumnos.view_alumno', raise_exception=True)
 def generar_pdf(request, alumno_id):
@@ -91,12 +100,14 @@ def generar_pdf(request, alumno_id):
     })
 
 
+# 📊 FORMULARIO EXPORTAR
 @login_required
 @permission_required('alumnos.view_alumno', raise_exception=True)
 def formulario_exportar_excel(request):
     return render(request, 'exportar_excel.html')
 
 
+# 📊 EXPORTAR EXCEL
 @login_required
 @permission_required('alumnos.view_alumno', raise_exception=True)
 def exportar_excel_grupo(request):
@@ -153,6 +164,7 @@ def exportar_excel_grupo(request):
     return response
 
 
+# 📥 CARGA MASIVA
 @login_required
 @permission_required('alumnos.add_alumno', raise_exception=True)
 def carga_masiva_alumnos(request):
@@ -239,14 +251,4 @@ def carga_masiva_alumnos(request):
 
     return render(request, 'carga_masiva.html', {
         'resultado': resultado
-    })
-
-from .models import Aviso
-
-@login_required
-def inicio(request):
-    aviso = Aviso.objects.filter(activo=True).order_by('-fecha').first()
-
-    return render(request, 'inicio.html', {
-        'aviso': aviso
     })
