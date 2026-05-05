@@ -115,6 +115,18 @@ TIME_ZONE = 'America/Santiago'
 USE_I18N = True
 USE_TZ = True
 
+# 📧 CORREO SMTP OTEC UNO
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'mail.otecuno.cl'
+EMAIL_PORT = 587
+EMAIL_USE_SSL = False
+EMAIL_USE_TLS = True
+
+EMAIL_HOST_USER = 'no-contestar@otecuno.cl'
+EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
+
+DEFAULT_FROM_EMAIL = 'OTEC UNO <no-contestar@otecuno.cl>'
+SERVER_EMAIL = 'no-contestar@otecuno.cl'
 
 # 📁 STATIC FILES
 STATIC_URL = '/static/'
