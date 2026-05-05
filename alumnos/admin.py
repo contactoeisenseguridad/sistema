@@ -451,7 +451,6 @@ class InscripcionAdmin(admin.ModelAdmin):
 class PagoAdmin(admin.ModelAdmin):
     list_display = (
         'alumno',
-        'inscripcion',
         'metodo_pago',
         'monto_total',
         'cantidad_cuotas',
@@ -464,13 +463,11 @@ class PagoAdmin(admin.ModelAdmin):
         'alumno__nombres',
         'alumno__apellidos',
         'alumno__rut',
-        'inscripcion__grupo',
     )
 
     list_filter = (
         'metodo_pago',
         'fecha_pago',
-        'inscripcion__grupo',
     )
 
     inlines = [CuotaInline]
