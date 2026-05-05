@@ -223,12 +223,17 @@ class AlumnoAdmin(admin.ModelAdmin):
         ]
         return custom_urls + urls
 
-    def enviar_codigo(self, request, alumno_id):
-        alumno = Alumno.objects.get(id=alumno_id)
+def enviar_codigo(self, request, alumno_id):
+    alumno = Alumno.objects.get(id=alumno_id)
 
     if not alumno.correo:
-        messages.error(request, "El alumno no tiene correo registrado.")
-        return HttpResponseRedirect(f"/admin/alumnos/alumno/{alumno.id}/change/")
+        messages.error(
+            request,
+            "El alumno no tiene correo registrado."
+        )
+        return HttpResponseRedirect(
+            f"/admin/alumnos/alumno/{alumno.id}/change/"
+        )
 
     alumno.codigo_confirmacion = str(random.randint(1000, 9999))
     alumno.fecha_codigo = timezone.now()
@@ -241,7 +246,8 @@ class AlumnoAdmin(admin.ModelAdmin):
         subject='Código de confirmación de correo',
         body=(
             f'Estimado/a {alumno.nombres},\n\n'
-            f'Su código de confirmación es: {alumno.codigo_confirmacion}\n\n'
+            f'Su código de confirmación es: '
+            f'{alumno.codigo_confirmacion}\n\n'
             f'Este código tendrá una vigencia de 10 minutos.\n\n'
             f'OTEC Uno EIRL\n'
             f'Preocupados por tu futuro'
@@ -258,7 +264,10 @@ class AlumnoAdmin(admin.ModelAdmin):
             accion="ENVIAR CODIGO CORREO",
             modelo="Alumno",
             objeto_id=alumno.id,
-            descripcion=f"Se generó y envió nuevo código a {alumno.correo}"
+            descripcion=(
+                f"Se generó y envió nuevo código "
+                f"a {alumno.correo}"
+            )
         )
 
         messages.success(
@@ -272,7 +281,9 @@ class AlumnoAdmin(admin.ModelAdmin):
             f"No se pudo enviar el correo: {e}"
         )
 
-    return HttpResponseRedirect(f"/admin/alumnos/alumno/{alumno.id}/change/")
+    return HttpResponseRedirect(
+        f"/admin/alumnos/alumno/{alumno.id}/change/"
+    )
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
