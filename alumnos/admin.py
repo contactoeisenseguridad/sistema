@@ -255,9 +255,15 @@ class AlumnoAdmin(admin.ModelAdmin):
 
         try:
             email.send(fail_silently=False)
-            messages.success(request, f"Código enviado correctamente a {alumno.correo}.")
+            messages.success(
+                request, 
+                f"Código enviado correctamente a {alumno.correo}."
+            )
         except Exception as e:
-        messages.error(request, f"No se pudo enviar el correo: {e}")
+            messages.error(
+                request, 
+                f"No se pudo enviar el correo: {e}"
+            )
 
         return redirect(f"/admin/alumnos/alumno/{alumno.id}/change/")
 
