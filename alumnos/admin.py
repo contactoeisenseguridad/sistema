@@ -224,7 +224,7 @@ class AlumnoAdmin(admin.ModelAdmin):
         return custom_urls + urls
 
     def enviar_codigo(self, request, alumno_id):
-    alumno = Alumno.objects.get(id=alumno_id)
+        alumno = Alumno.objects.get(id=alumno_id)
 
     if not alumno.correo:
         messages.error(request, "El alumno no tiene correo registrado.")
