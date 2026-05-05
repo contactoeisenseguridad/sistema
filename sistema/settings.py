@@ -117,17 +117,19 @@ USE_TZ = True
 
 # 📧 CORREO SMTP OTEC UNO
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'mail.otecuno.cl'
-EMAIL_PORT = 587
-EMAIL_USE_SSL = False
-EMAIL_USE_TLS = True
 
-EMAIL_HOST_USER = 'no-contestar@otecuno.cl'
+EMAIL_HOST = config('EMAIL_HOST', default='mail.otecuno.cl')
+EMAIL_PORT = config('EMAIL_PORT', default=465, cast=int)
+
+EMAIL_USE_TLS = config('EMAIL_USE_TLS', default=False, cast=bool)
+EMAIL_USE_SSL = config('EMAIL_USE_SSL', default=True, cast=bool)
+
+EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
 EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
 
-DEFAULT_FROM_EMAIL = 'OTEC UNO <no-contestar@otecuno.cl>'
-SERVER_EMAIL = 'no-contestar@otecuno.cl'
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
+EMAIL_TIMEOUT = 10
 # 📁 STATIC FILES
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
