@@ -131,9 +131,15 @@ SERVER_EMAIL = 'no-contestar@otecuno.cl'
 # 📁 STATIC FILES
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
-STATICFILES_DIRS = []
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
 
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
+    },
+}
 
 # 🔐 LOGIN
 LOGIN_URL = '/admin/login/'
