@@ -2,6 +2,7 @@ from django.contrib import admin, messages
 from django.db.models import OuterRef, Subquery
 from django.utils.html import format_html
 from django.http import HttpResponseRedirect
+from django.shortcuts import redirect
 from django.conf import settings
 from django.core.mail import EmailMessage
 from django.utils import timezone
@@ -255,27 +256,26 @@ class AlumnoAdmin(admin.ModelAdmin):
 
         try:
             email.send(fail_silently=False)
+
+            Auditoria.objects.create(
+                usuario=request.user.username,
+                accion="ENVIAR CODIGO CORREO",
+                modelo="Alumno",
+                objeto_id=alumno.id,
+                descripcion=f"Se generó y envió nuevo código a {alumno.correo}"
+            )
+
             messages.success(
-                request, 
+                request,
                 f"Código enviado correctamente a {alumno.correo}."
             )
+
         except Exception as e:
             messages.error(
-                request, 
+                request,
                 f"No se pudo enviar el correo: {e}"
             )
 
-        return redirect(f"/admin/alumnos/alumno/{alumno.id}/change/")
-
-        Auditoria.objects.create(
-            usuario=request.user.username,
-            accion="ENVIAR CODIGO CORREO",
-            modelo="Alumno",
-            objeto_id=alumno.id,
-            descripcion=f"Se generó y envió nuevo código a {alumno.correo}"
-        )
-
-        messages.success(request, f"Código enviado correctamente a {alumno.correo}.")
         return HttpResponseRedirect(f"/admin/alumnos/alumno/{alumno.id}/change/")
 
     def get_queryset(self, request):
