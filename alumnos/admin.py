@@ -242,7 +242,8 @@ class AlumnoAdmin(admin.ModelAdmin):
                 f'Estimado/a {alumno.nombres},\n\n'
                 f'Su código de confirmación es: {alumno.codigo_confirmacion}\n\n'
                 f'Este código tendrá una vigencia de 10 minutos.\n\n'
-                f'OTEC Uno'
+                f'OTEC Uno EIRL'
+                f'Preocupados por tú futuro'
             ),
             from_email=settings.DEFAULT_FROM_EMAIL,
             to=[alumno.correo],
@@ -252,7 +253,13 @@ class AlumnoAdmin(admin.ModelAdmin):
         connection.ssl_context = ssl._create_unverified_context()
         email.connection = connection
 
-        email.send()
+        try:
+            email.send(fail_silently=False)
+            messages.success(request, f"Código enviado correctamente a {alumno.correo}.")
+        except Exception as e:
+        messages.error(request, f"No se pudo enviar el correo: {e}")
+
+        return redirect(f"/admin/alumnos/alumno/{alumno.id}/change/")
 
         Auditoria.objects.create(
             usuario=request.user.username,
