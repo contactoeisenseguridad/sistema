@@ -250,9 +250,7 @@ class AlumnoAdmin(admin.ModelAdmin):
             to=[alumno.correo],
         )
 
-        connection = email.get_connection()
-        connection.ssl_context = ssl._create_unverified_context()
-        email.connection = connection
+        email.send(fail_silently=False)
 
         try:
             email.send(fail_silently=False)
