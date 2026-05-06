@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'alumnos',
+    'anymail',
 ]
 
 
@@ -114,23 +115,15 @@ TIME_ZONE = 'America/Santiago'
 USE_I18N = True
 USE_TZ = True
 
-# 📧 CORREO SMTP OTEC UNO
+# 📧 CORREO API OTEC UNO (Resend vía HTTP)
+EMAIL_BACKEND = 'anymail.backends.resend.EmailBackend'
 
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-
-EMAIL_HOST = config('EMAIL_HOST', default='mail.otecuno.cl')
-EMAIL_PORT = config('EMAIL_PORT', default=587, cast=int)
-
-EMAIL_USE_TLS = config('EMAIL_USE_TLS', default=True, cast=bool)
-EMAIL_USE_SSL = config('EMAIL_USE_SSL', default=False, cast=bool)
-
-EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='no-contestar@otecuno.cl')
-EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
+ANYMAIL = {
+    "RESEND_API_KEY": config('RESEND_API_KEY', default=''),
+}
 
 DEFAULT_FROM_EMAIL = 'OTEC Uno <no-contestar@otecuno.cl>'
 SERVER_EMAIL = 'no-contestar@otecuno.cl'
-
-EMAIL_TIMEOUT = 10
 
 # 📁 STATIC FILES
 STATIC_URL = '/static/'
