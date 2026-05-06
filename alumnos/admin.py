@@ -652,11 +652,14 @@ class CuotaAdmin(admin.ModelAdmin):
     search_fields = (
         'pago__inscripcion__alumno__nombres', 
         'pago__inscripcion__alumno__rut'
+        'pago__alumno__rut'
     )
     ordering = ('fecha_vencimiento',)
 
     def get_alumno(self, obj):
-        return f"{obj.pago.inscripcion.alumno.nombres} {obj.pago.inscripcion.alumno.apellidos}"
+        if obj.pago and obj.pago.alumno:
+            return f"{obj.pago.alumno.nombres} {obj.pago.alumno.apellidos}"
+        return "Sin Alumno"
     get_alumno.short_description = "Alumno"
 
     def estado_display(self, obj):
