@@ -128,8 +128,8 @@ EMAIL_USE_SSL = config('EMAIL_USE_SSL', default=False, cast=bool)
 EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='no-contestar@otecuno.cl')
 EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
 
-DEFAULT_FROM_EMAIL = f'OTEC Uno <{EMAIL_HOST_USER}>'
-SERVER_EMAIL = EMAIL_HOST_USER
+DEFAULT_FROM_EMAIL = 'OTEC Uno <no-contestar@otecuno.cl>'
+SERVER_EMAIL = 'no-contestar@otecuno.cl'
 
 EMAIL_TIMEOUT = 10
 
