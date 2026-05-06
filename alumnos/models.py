@@ -146,8 +146,11 @@ class Cuota(models.Model):
     )
 
     class Meta:
-        # unique_together = ('pago', 'numero_cuota')
         ordering = ['fecha_vencimiento']
+        # 👇 AQUÍ ESTÁ EL PERMISO NUEVO DE SEGURIDAD
+        permissions = [
+            ("can_edit_locked_cuotas", "Puede editar cuotas ya ingresadas"),
+        ]
 
     def save(self, *args, **kwargs):
         if self.estado == 'PAGADA' and not self.fecha_pago:
@@ -155,7 +158,7 @@ class Cuota(models.Model):
 
         if self.estado == 'PENDIENTE':
             self.fecha_pago = None
-
+            # 👇 Ajuste de indentación aquí
             if self.fecha_vencimiento < timezone.localdate():
                 self.estado = 'VENCIDA'
 
