@@ -1,5 +1,5 @@
 from django.contrib import admin, messages
-from django.db.models import OuterRef, Subquery
+from django.db.models import OuterRef, Subquery, Sum
 from django.utils.html import format_html
 from django.http import HttpResponseRedirect
 from django.conf import settings
@@ -101,6 +101,15 @@ class CuotaInline(admin.TabularInline):
         'estado',
     )
 
+    # 🔒 SEGURIDAD: Bloquear edición para operadores si el pago ya existe
+    def get_readonly_fields(self, request, obj=None):
+        if not request.user.is_superuser and obj:
+            return self.fields
+        return super().get_readonly_fields(request, obj)
+
+    def has_delete_permission(self, request, obj=None):
+        return request.user.is_superuser
+
 
 class GrupoAlumnoFilter(admin.SimpleListFilter):
     title = 'Grupo'
@@ -165,6 +174,7 @@ class AlumnoAdmin(admin.ModelAdmin):
         'nombres',
     )
 
+    # 👇 Aquí se agregaron los inlines para ver pagos desde el alumno
     inlines = [
         InscripcionInline,
         PagoInline,
@@ -618,6 +628,46 @@ class PagoAdmin(admin.ModelAdmin):
         return obj.monto_total - total_pagado
 
     saldo_pendiente.short_description = "Saldo pendiente"
+
+    def has_delete_permission(self, request, obj=None):
+        return request.user.is_superuser
+
+
+# 📋 NUEVA VISTA: Panel de Cuotas y Cobranza
+@admin.register(Cuota)
+class CuotaAdmin(admin.ModelAdmin):
+    list_display = (
+        'get_alumno', 
+        'numero_cuota', 
+        'monto', 
+        'fecha_vencimiento', 
+        'estado_display'
+    )
+    list_filter = (
+        'estado', 
+        'fecha_vencimiento', 
+        'pago__inscripcion__curso'
+    )
+    search_fields = (
+        'pago__inscripcion__alumno__nombres', 
+        'pago__inscripcion__alumno__rut'
+    )
+    ordering = ('fecha_vencimiento',)
+
+    def get_alumno(self, obj):
+        return f"{obj.pago.inscripcion.alumno.nombres} {obj.pago.inscripcion.alumno.apellidos}"
+    get_alumno.short_description = "Alumno"
+
+    def estado_display(self, obj):
+        color = "green" if obj.estado == 'PAGADA' else "red" if obj.fecha_vencimiento < timezone.now().date() else "orange"
+        return format_html('<span style="color: {}; font-weight: bold;">{}</span>', color, obj.estado)
+    estado_display.short_description = "Estado"
+
+    # 🔒 SEGURIDAD: Bloqueo total de edición para operadores en esta vista
+    def has_change_permission(self, request, obj=None):
+        if obj and not request.user.is_superuser:
+            return False
+        return super().has_change_permission(request, obj)
 
     def has_delete_permission(self, request, obj=None):
         return request.user.is_superuser
