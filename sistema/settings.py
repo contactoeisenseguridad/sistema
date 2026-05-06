@@ -119,7 +119,7 @@ USE_TZ = True
 EMAIL_BACKEND = 'anymail.backends.resend.EmailBackend'
 
 ANYMAIL = {
-    "RESEND_API_KEY": config('re_NQKotgkE_4J2XQHt2kySrTJaihdQcrpjJ'),
+    "RESEND_API_KEY": 're_NQKotgkE_4J2XQHt2kySrTJaihdQcrpjJ',
 }
 
 DEFAULT_FROM_EMAIL = 'OTEC Uno <no-contestar@otecuno.cl>'
