@@ -18,7 +18,6 @@ DEBUG = config('DEBUG', default=False, cast=bool)
 
 
 # ✅ ALLOWED HOSTS (Railway)
-
 ALLOWED_HOSTS = [
     "sistema-production-bc4d.up.railway.app",
     "sistema.otecuno.app",
