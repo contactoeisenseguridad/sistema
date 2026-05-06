@@ -151,6 +151,7 @@ class Cuota(models.Model):
         permissions = [
             ("can_edit_locked_cuotas", "Puede editar cuotas ya ingresadas"),
         ]
+        verbose_name_plural = "Listado de Deudores"
 
     def save(self, *args, **kwargs):
         if self.estado == 'PAGADA' and not self.fecha_pago:

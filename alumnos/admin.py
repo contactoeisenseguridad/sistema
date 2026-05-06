@@ -607,6 +607,7 @@ class PagoAdmin(admin.ModelAdmin):
     )
 
     inlines = [CuotaInline]
+    exclude = ('inscripcion',)
 
     def total_cuotas(self, obj):
 
