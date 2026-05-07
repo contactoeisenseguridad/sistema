@@ -244,12 +244,14 @@ class InscripcionAdmin(admin.ModelAdmin):
 @admin.register(Pago)
 class PagoAdmin(admin.ModelAdmin):
     # 👇 MODIFICADO: Se agregó 'inscripcion' a las columnas visuales
-    list_display = ('alumno', 'metodo_pago', 'ver_monto_total', 'cantidad_cuotas', 'fecha_pago', 'ver_saldo_pendiente')
+    list_display = ('alumno', 'inscripcion', 'metodo_pago', 'ver_monto_total', 'cantidad_cuotas', 'fecha_pago', 'ver_saldo_pendiente')
     search_fields = ('alumno__nombres', 'alumno__apellidos', 'alumno__rut')
     list_filter = ('metodo_pago', 'fecha_pago')
     ordering = ('alumno__apellidos', 'alumno__nombres') # 🔤 Orden Alfabético PDF
     inlines = [CuotaInline]
-    # 👇 MODIFICADO: Se eliminó exclude = ('inscripcion',)
+    
+    exclude = ('inscripcion',)
+    
     readonly_fields = ('info_alumno_detalle',)
 
     # 🔒 Fijar al Alumno (PDF)
