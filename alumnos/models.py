@@ -53,7 +53,7 @@ class Alumno(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.nombres} {self.apellidos}"
+        return f"{self.apellidos} {self.nombres}"
 
 
 class Inscripcion(models.Model):

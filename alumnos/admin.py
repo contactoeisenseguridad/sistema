@@ -63,8 +63,7 @@ class InscripcionInline(admin.TabularInline):
 class PagoInline(admin.TabularInline):
     model = Pago
     extra = 0
-    # 👇 MODIFICADO: Se agregó 'inscripcion' a los campos
-    fields = ('inscripcion', 'metodo_pago', 'monto_total', 'cantidad_cuotas', 'fecha_pago', 'enlace_detalle')
+    fields = ('metodo_pago', 'monto_total', 'cantidad_cuotas', 'fecha_pago', 'enlace_detalle')
     readonly_fields = ('enlace_detalle',)
     verbose_name = "Pago"
     verbose_name_plural = "Pagos del alumno"
