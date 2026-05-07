@@ -26,6 +26,9 @@ class Alumno(models.Model):
     fecha_codigo = models.DateTimeField(blank=True, null=True)
     intentos_codigo = models.IntegerField(default=0)
 
+    class Meta:
+        ordering = ['apellidos', 'nombres']
+
     def save(self, *args, **kwargs):
         import random
 

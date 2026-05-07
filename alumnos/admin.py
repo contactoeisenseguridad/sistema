@@ -63,8 +63,8 @@ class InscripcionInline(admin.TabularInline):
 class PagoInline(admin.TabularInline):
     model = Pago
     extra = 0
-    # 👇 PUNTO 4: Agregamos el enlace_detalle para ir a la vista blindada
-    fields = ('metodo_pago', 'monto_total', 'cantidad_cuotas', 'fecha_pago', 'enlace_detalle')
+    # 👇 MODIFICADO: Se agregó 'inscripcion' a los campos
+    fields = ('inscripcion', 'metodo_pago', 'monto_total', 'cantidad_cuotas', 'fecha_pago', 'enlace_detalle')
     readonly_fields = ('enlace_detalle',)
     verbose_name = "Pago"
     verbose_name_plural = "Pagos del alumno"
@@ -243,30 +243,34 @@ class InscripcionAdmin(admin.ModelAdmin):
 
 @admin.register(Pago)
 class PagoAdmin(admin.ModelAdmin):
-    list_display = ('alumno', 'metodo_pago', 'ver_monto_total', 'cantidad_cuotas', 'fecha_pago', 'ver_saldo_pendiente')
+    # 👇 MODIFICADO: Se agregó 'inscripcion' a las columnas visuales
+    list_display = ('alumno', 'inscripcion', 'metodo_pago', 'ver_monto_total', 'cantidad_cuotas', 'fecha_pago', 'ver_saldo_pendiente')
     search_fields = ('alumno__nombres', 'alumno__apellidos', 'alumno__rut')
     list_filter = ('metodo_pago', 'fecha_pago')
     ordering = ('alumno__apellidos', 'alumno__nombres') # 🔤 Orden Alfabético PDF
     inlines = [CuotaInline]
-    exclude = ('inscripcion',)
+    # 👇 MODIFICADO: Se eliminó exclude = ('inscripcion',)
     readonly_fields = ('info_alumno_detalle',)
 
     # 🔒 Fijar al Alumno (PDF)
     def get_readonly_fields(self, request, obj=None):
-        # Si el pago ya existe, el campo 'alumno' se bloquea
+        # Si el pago ya existe, el campo 'alumno' e 'inscripcion' se bloquean
         if obj:
-            return self.readonly_fields + ('alumno', 'monto_total', 'cantidad_cuotas')
+            return self.readonly_fields + ('alumno', 'inscripcion', 'monto_total', 'cantidad_cuotas')
         return self.readonly_fields
 
     def info_alumno_detalle(self, obj):
         if obj and obj.alumno:
+            # 👇 MODIFICADO: Botón mágico para registrar nuevo pago
             return format_html(
                 '<strong style="font-size: 14px;">{} {}</strong><br>'
                 '<span style="color: #666;">RUT: {}</span><br>'
-                '<span style="color: #666;">Correo: {}</span>',
+                '<span style="color: #666;">Correo: {}</span><br><br>'
+                '<a class="button" style="background-color: #417690; color: white;" href="/admin/alumnos/pago/add/?alumno={}">➕ Registrar nuevo pago/curso para este alumno</a>',
                 obj.alumno.nombres, obj.alumno.apellidos,
                 obj.alumno.rut,
-                obj.alumno.correo
+                obj.alumno.correo,
+                obj.alumno.id
             )
         return "Guarde el pago para ver los detalles del alumno."
     info_alumno_detalle.short_description = "Datos del Alumno"
@@ -326,11 +330,27 @@ class CuotaAdmin(admin.ModelAdmin):
         return format_html('<span style="color: {}; font-weight: bold;">{}</span>', color, obj.estado)
     estado_display.short_description = "Estado"
 
-    def has_change_permission(self, request, obj=None):
-        if obj and not request.user.is_superuser: return False
-        return super().has_change_permission(request, obj)
+    # 👇 MODIFICADO: El operador AHORA PUEDE ENTRAR, pero solo puede editar el Estado.
+    def get_readonly_fields(self, request, obj=None):
+        if not request.user.is_superuser and obj:
+            return ('pago', 'numero_cuota', 'monto', 'fecha_vencimiento', 'fecha_pago')
+        return super().get_readonly_fields(request, obj)
 
     def has_delete_permission(self, request, obj=None): return request.user.is_superuser
+
+    # 👇 MODIFICADO: Auditoría también se dispara si el operador lo cambia desde esta ventana.
+    def save_model(self, request, obj, form, change):
+        if change:
+            cuota_antigua = Cuota.objects.get(pk=obj.pk)
+            if cuota_antigua.estado != 'PAGADA' and obj.estado == 'PAGADA':
+                Auditoria.objects.create(
+                    usuario=request.user.username,
+                    accion="🔴 PAGO RECIBIDO",
+                    modelo="Cuota",
+                    objeto_id=obj.pk,
+                    descripcion=f"ATENCIÓN: Se marcó como PAGADA la Cuota {obj.numero_cuota} de {formato_clp(obj.monto)} correspondiente a {obj.pago.alumno}."
+                )
+        super().save_model(request, obj, form, change)
 
 
 @admin.register(GastoOperacional)
