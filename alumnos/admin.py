@@ -110,7 +110,7 @@ class GrupoAlumnoFilter(admin.SimpleListFilter):
 
 @admin.register(Alumno)
 class AlumnoAdmin(admin.ModelAdmin):
-    list_display = ('nombres', 'apellidos', 'rut', 'estado_rut', 'grupo_actual', 'correo', 'estado_correo')
+    list_display = ('apellidos', 'nombres', 'rut', 'estado_rut', 'grupo_actual', 'estado_correo')
     search_fields = ('nombres', 'apellidos', 'rut', 'correo')
     list_filter = (GrupoAlumnoFilter, 'correo_confirmado', 'rut_confirmado')
     list_per_page = 100
