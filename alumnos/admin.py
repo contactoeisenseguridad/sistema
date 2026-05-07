@@ -189,8 +189,11 @@ class AlumnoAdmin(admin.ModelAdmin):
             queryset |= self.model.objects.filter(id__in=alumnos_por_grupo)
         return queryset, use_distinct
 
-    def has_change_permission(self, request, obj=None): return request.user.is_superuser
-    def has_delete_permission(self, request, obj=None): return request.user.is_superuser
+    def has_change_permission(self, request, obj=None): 
+        return super().has_change_permission(request, obj)
+        
+    def has_delete_permission(self, request, obj=None): 
+        return request.user.is_superuser
 
     def save_model(self, request, obj, form, change):
         rut_original = obj.rut
