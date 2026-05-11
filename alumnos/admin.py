@@ -27,7 +27,7 @@ admin.site.register(Aviso)
 def enviar_a_moodle(inscripcion):
     MOODLE_URL = "https://virtual.otecuno.cl/webservice/rest/server.php"
     
-    # 👇 PON TU TOKEN AQUÍ ADENTRO (Borra este texto y pega los números/letras)
+    # 👇 PON TU TOKEN AQUÍ ADENTRO
     MOODLE_TOKEN = "401791078af1d393dce611bd34c9549e" 
     
     CURSOS_MOODLE = {
@@ -74,11 +74,11 @@ def enviar_a_moodle(inscripcion):
         
         moodle_user_id = None
         
-        # Si la lista tiene datos, ¡EL ALUMNO YA EXISTÍA! (Como Gisel)
+        # Si la lista tiene datos, ¡EL ALUMNO YA EXISTÍA!
         if isinstance(busqueda, list) and len(busqueda) > 0:
             moodle_user_id = busqueda[0]['id']
         else:
-            # SI NO EXISTE, PROCEDEMOS A CREARLO (Solo con los datos vitales)
+            # SI NO EXISTE, PROCEDEMOS A CREARLO
             params_crear = {
                 'wstoken': MOODLE_TOKEN,
                 'wsfunction': 'core_user_create_users',
@@ -97,14 +97,13 @@ def enviar_a_moodle(inscripcion):
                 mensaje = creacion.get('message', '')
                 return False, f"🔴 Falló la creación en Moodle | Detalle: {mensaje} | Revisa si el correo ya lo usa otro alumno."
             
-            # Volvemos a buscar para obtener su ID interno
-            busqueda_nueva = requests.post(MOODLE_URL, data=params_buscar).json()
-            if isinstance(busqueda_nueva, list) and len(busqueda_nueva) > 0:
-                moodle_user_id = busqueda_nueva[0]['id']
+            # 👇 SOLUCIÓN DE ORO: Extraemos el ID directamente del recibo de creación, sin buscar de nuevo.
+            if isinstance(creacion, list) and len(creacion) > 0 and 'id' in creacion[0]:
+                moodle_user_id = creacion[0]['id']
             else:
-                return False, "Se creó el alumno, pero Moodle no me devuelve su ID interno."
+                return False, f"Respuesta extraña de Moodle al crear (No devolvió ID). Respuesta cruda: {creacion}"
         
-        # 4. MATRICULAR AL ALUMNO EN EL CURSO (Funciona para nuevos y antiguos)
+        # 4. MATRICULAR AL ALUMNO EN EL CURSO 
         params_matricular = {
             'wstoken': MOODLE_TOKEN,
             'wsfunction': 'enrol_manual_enrol_users',
