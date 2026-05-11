@@ -440,4 +440,236 @@ class AlumnoAdmin(admin.ModelAdmin):
                 obj.intentos_codigo += 1
                 messages.error(request, f"Código incorrecto ❌ Intento {obj.intentos_codigo} de 3.")
                 
-        super().save_model(request, obj, form,
+        super().save_model(request, obj, form, change)
+
+    def response_change(self, request, obj):
+        if "_validar_codigo" in request.POST: 
+            return HttpResponseRedirect(f"/admin/alumnos/alumno/{obj.id}/change/")
+        return super().response_change(request, obj)
+
+    def response_add(self, request, obj, post_url_continue=None):
+        return HttpResponseRedirect(f"/admin/alumnos/alumno/{obj.id}/")
+
+
+@admin.register(Inscripcion)
+class InscripcionAdmin(admin.ModelAdmin):
+    list_display = ('alumno', 'curso', 'grupo', 'fecha_inicio', 'estado')
+    search_fields = ('alumno__nombres', 'alumno__apellidos', 'alumno__rut', 'curso', 'grupo')
+    list_filter = ('grupo', 'curso', 'estado', 'fecha_inicio')
+    list_per_page = 100
+    ordering = ('-fecha_inicio', 'grupo', 'alumno__apellidos')
+    
+    actions = ['matricular_masivamente_moodle', 'enviar_recuperacion_clave']
+
+    # 👇 Quitamos el @admin.action de aquí arriba
+    def matricular_masivamente_moodle(self, request, queryset):
+        exitos = 0
+        errores = 0
+        for inscripcion in queryset:
+            if not inscripcion.alumno.correo:
+                messages.error(request, f"❌ {inscripcion.alumno} no tiene correo. Moodle exige uno.")
+                errores += 1
+                continue
+                
+            exito, mensaje = enviar_a_moodle(inscripcion)
+            if exito:
+                exitos += 1
+            else:
+                messages.error(request, f"❌ Error en {inscripcion.alumno}: {mensaje}")
+                errores += 1
+                
+        if exitos > 0:
+            messages.success(request, f"✅ {exitos} alumnos matriculados en Moodle y correos de bienvenida enviados.")
+            
+    # 👇 Y le ponemos el nombre universal aquí abajo:
+    matricular_masivamente_moodle.short_description = "🎓 1. Matricular seleccionados en Moodle"
+
+    # 👇 Quitamos el @admin.action de aquí arriba
+    def enviar_recuperacion_clave(self, request, queryset):
+        exitos = 0
+        for inscripcion in queryset:
+            if inscripcion.alumno.correo:
+                cuerpo = f"""Estimad@ {inscripcion.alumno.nombres},
+
+Te enviamos este correo para que puedas recuperar o restablecer su contraseña para el Aula Virtual de OTEC Uno.
+
+Para generar una nueva contraseña, por favor haga clic en el siguiente enlace y siga los pasos indicados en pantalla (deberá ingresar su RUN o su correo electrónico):
+
+👉 https://virtual.otecuno.cl/login/forgot_password.php
+
+Si usted no ha solicitado este cambio, simplemente ignore este correo.
+
+Saludos cordiales,
+Soporte Técnico
+UNO OTEC
+contacto@otecuno.cl"""
+                
+                email = EmailMessage(
+                    subject='Recuperación de contraseña - Aula Virtual',
+                    body=cuerpo,
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    to=[inscripcion.alumno.correo],
+                )
+                email.send(fail_silently=True)
+                exitos += 1
+                
+        messages.success(request, f"✅ Se enviaron {exitos} correos con el link de recuperación de contraseña.")
+        
+    # 👇 Y le ponemos el nombre universal aquí abajo:
+    enviar_recuperacion_clave.short_description = "🔑 2. Enviar botón 'Forgot Password' (Recuperar clave)"
+
+    def has_change_permission(self, request, obj=None): 
+        return super().has_change_permission(request, obj)
+        
+    def has_delete_permission(self, request, obj=None): 
+        return request.user.is_superuser
+
+@admin.register(Pago)
+class PagoAdmin(admin.ModelAdmin):
+    # 👇 MODIFICADO: Se agregó 'inscripcion' a las columnas visuales
+    list_display = (
+        'alumno', 'metodo_pago', 'ver_monto_total', 'cantidad_cuotas', 
+        'fecha_pago', 'ver_saldo_pendiente'
+    )
+    search_fields = ('alumno__nombres', 'alumno__apellidos', 'alumno__rut')
+    list_filter = ('metodo_pago', 'fecha_pago')
+    ordering = ('alumno__apellidos', 'alumno__nombres') # 🔤 Orden Alfabético PDF
+    inlines = [CuotaInline]
+    
+    exclude = ('inscripcion',)
+    
+    readonly_fields = ('info_alumno_detalle',)
+
+    # 🔒 Fijar al Alumno (PDF)
+    def get_readonly_fields(self, request, obj=None):
+        # Si el pago ya existe, el campo 'alumno' e 'inscripcion' se bloquean
+        if obj:
+            return self.readonly_fields + ('alumno', 'inscripcion', 'monto_total', 'cantidad_cuotas')
+        return self.readonly_fields
+
+    def info_alumno_detalle(self, obj):
+        if obj and obj.alumno:
+            # 👇 MODIFICADO: Botón mágico para registrar nuevo pago
+            return format_html(
+                '<strong style="font-size: 14px;">{} {}</strong><br>'
+                '<span style="color: #666;">RUT: {}</span><br>'
+                '<span style="color: #666;">Correo: {}</span><br><br>'
+                '<a class="button" style="background-color: #417690; color: white;" href="/admin/alumnos/pago/add/?alumno={}">➕ Registrar nuevo pago/curso para este alumno</a>',
+                obj.alumno.nombres, obj.alumno.apellidos,
+                obj.alumno.rut,
+                obj.alumno.correo,
+                obj.alumno.id
+            )
+        return "Guarde el pago para ver los detalles del alumno."
+    info_alumno_detalle.short_description = "Datos del Alumno"
+
+    # 💲 Formato de Moneda
+    def ver_monto_total(self, obj):
+        return formato_clp(obj.monto_total)
+    ver_monto_total.short_description = "Monto Total"
+
+    def ver_saldo_pendiente(self, obj):
+        total_pagado = sum(c.monto for c in obj.cuotas.all() if c.estado == 'PAGADA')
+        return formato_clp(obj.monto_total - total_pagado)
+    ver_saldo_pendiente.short_description = "Saldo Pendiente"
+
+    # 🚨 INTERCEPTOR: Auditoría automática cuando se paga una cuota
+    def save_formset(self, request, form, formset, change):
+        instances = formset.save(commit=False)
+        for instance in instances:
+            if isinstance(instance, Cuota) and instance.pk:
+                cuota_antigua = Cuota.objects.get(pk=instance.pk)
+                # Si el operador acaba de marcar la cuota como PAGADA
+                if cuota_antigua.estado != 'PAGADA' and instance.estado == 'PAGADA':
+                    Auditoria.objects.create(
+                        usuario=request.user.username,
+                        accion="🔴 PAGO RECIBIDO",
+                        modelo="Cuota",
+                        objeto_id=instance.pk,
+                        descripcion=f"ATENCIÓN: Se marcó como PAGADA la Cuota {instance.numero_cuota} de {formato_clp(instance.monto)} correspondiente a {instance.pago.alumno}."
+                    )
+            instance.save()
+        formset.save_m2m()
+
+    def has_delete_permission(self, request, obj=None):
+        return request.user.is_superuser
+
+
+# 📋 NUEVA VISTA: Panel de Cuotas y Cobranza
+@admin.register(Cuota)
+class CuotaAdmin(admin.ModelAdmin):
+    list_display = (
+        'get_alumno', 'numero_cuota', 'ver_monto', 'fecha_vencimiento', 'estado_display'
+    )
+    list_filter = ('estado', 'fecha_vencimiento')
+    search_fields = ('pago__alumno__nombres', 'pago__alumno__apellidos', 'pago__alumno__rut')
+    ordering = ('fecha_vencimiento',)
+
+    def ver_monto(self, obj):
+        return formato_clp(obj.monto)
+    ver_monto.short_description = "Monto"
+
+    def get_alumno(self, obj):
+        if obj.pago and obj.pago.alumno:
+            return f"{obj.pago.alumno.apellidos} {obj.pago.alumno.nombres}"
+        return "Sin Alumno"
+    get_alumno.short_description = "Alumno"
+
+    def estado_display(self, obj):
+        color = "green" if obj.estado == 'PAGADA' else "red" if obj.fecha_vencimiento < timezone.now().date() else "orange"
+        return format_html('<span style="color: {}; font-weight: bold;">{}</span>', color, obj.estado)
+    estado_display.short_description = "Estado"
+
+    # 👇 MODIFICADO: El operador AHORA PUEDE ENTRAR, pero solo puede editar el Estado.
+    def get_readonly_fields(self, request, obj=None):
+        if not request.user.is_superuser and obj:
+            return ('pago', 'numero_cuota', 'monto', 'fecha_vencimiento', 'fecha_pago')
+        return super().get_readonly_fields(request, obj)
+
+    def has_delete_permission(self, request, obj=None): 
+        return request.user.is_superuser
+
+    # 👇 MODIFICADO: Auditoría también se dispara si el operador lo cambia desde esta ventana.
+    def save_model(self, request, obj, form, change):
+        if change:
+            cuota_antigua = Cuota.objects.get(pk=obj.pk)
+            if cuota_antigua.estado != 'PAGADA' and obj.estado == 'PAGADA':
+                Auditoria.objects.create(
+                    usuario=request.user.username,
+                    accion="🔴 PAGO RECIBIDO",
+                    modelo="Cuota",
+                    objeto_id=obj.pk,
+                    descripcion=f"ATENCIÓN: Se marcó como PAGADA la Cuota {obj.numero_cuota} de {formato_clp(obj.monto)} correspondiente a {obj.pago.alumno}."
+                )
+        super().save_model(request, obj, form, change)
+
+
+@admin.register(GastoOperacional)
+class GastoOperacionalAdmin(admin.ModelAdmin):
+    list_display = ('concepto', 'grupo', 'monto', 'fecha')
+    list_filter = ('grupo', 'fecha')
+    search_fields = ('concepto', 'grupo')
+    list_per_page = 100
+    ordering = ('-fecha',)
+
+
+@admin.register(Auditoria)
+class AuditoriaAdmin(admin.ModelAdmin):
+    list_display = ('usuario', 'accion', 'modelo', 'objeto_id', 'fecha')
+    search_fields = ('usuario', 'accion', 'modelo', 'descripcion')
+    list_filter = ('accion', 'modelo', 'fecha')
+    list_per_page = 100
+    ordering = ('-fecha',)
+
+    def has_add_permission(self, request): 
+        return False
+        
+    def has_change_permission(self, request, obj=None): 
+        return False
+        
+    def has_delete_permission(self, request, obj=None): 
+        return False
+
+admin.site.site_header = "Sistema de Matrícula - OTEC Uno"
+admin.site.site_title = "Sistema de Matrícula - OTEC Uno"
+admin.site.index_title = "Panel de administración"
