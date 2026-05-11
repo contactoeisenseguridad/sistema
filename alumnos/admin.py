@@ -26,7 +26,7 @@ admin.site.register(Aviso)
 # --- FUNCIÓN DE INTEGRACIÓN CON MOODLE (VERSIÓN BLINDADA Y LIMPIA) ---
 def enviar_a_moodle(inscripcion):
     MOODLE_URL = "https://virtual.otecuno.cl/webservice/rest/server.php"
-    MOODLE_TOKEN = "PEGA_AQUI_TU_NUEVO_TOKEN" # 🔴 ¡NO OLVIDES PEGAR TU TOKEN AQUÍ!
+    MOODLE_TOKEN = "401791078af1d393dce611bd34c9549e" # 🔴 ¡NO OLVIDES PEGAR TU TOKEN AQUÍ!
     
     CURSOS_MOODLE = {
         'FGS': 73,  
@@ -161,7 +161,6 @@ contacto@otecuno.cl"""
         return False, f"Se matriculó en Moodle, pero NO se pudo enviar el correo: {str(error_correo)}"
         
     return True, "Matriculado con éxito en Moodle y correo enviado."
-
 
 # --- Funciones de Utilidad ---
 
