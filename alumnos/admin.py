@@ -23,10 +23,10 @@ from .models import (
 admin.site.register(Aviso)
 
 
-# --- FUNCIÓN DE INTEGRACIÓN CON MOODLE (VERSIÓN BLINDADA) ---
+# --- FUNCIÓN DE INTEGRACIÓN CON MOODLE (VERSIÓN BLINDADA Y LIMPIA) ---
 def enviar_a_moodle(inscripcion):
     MOODLE_URL = "https://virtual.otecuno.cl/webservice/rest/server.php"
-    MOODLE_TOKEN = "401791078af1d393dce611bd34c9549e" # Confirma que este sea el real
+    MOODLE_TOKEN = "PEGA_AQUI_TU_NUEVO_TOKEN" # 🔴 ¡NO OLVIDES PEGAR TU TOKEN AQUÍ!
     
     CURSOS_MOODLE = {
         'FGS': 73,  
@@ -35,7 +35,6 @@ def enviar_a_moodle(inscripcion):
     }
     
     try:
-        # 1. Blindamos la lectura de los nombres de grupo y curso transformándolos en texto seguro
         sigla_curso = None
         grupo_str = str(inscripcion.grupo).upper() if inscripcion.grupo else ""
         curso_str = str(inscripcion.curso).upper() if inscripcion.curso else ""
@@ -45,41 +44,48 @@ def enviar_a_moodle(inscripcion):
         elif "SSPP" in curso_str: sigla_curso = 'SSPP'
         
         if not sigla_curso or sigla_curso not in CURSOS_MOODLE:
-            return False, f"No reconocí la sigla del curso (FGS, CCTV, SSPP) en: '{curso_str}' o '{grupo_str}'"
+            return False, f"No reconocí la sigla del curso en: '{curso_str}' o '{grupo_str}'"
 
         curso_id_moodle = CURSOS_MOODLE[sigla_curso]
         
-        # 2. Limpiamos el RUT
-        rut_limpio = inscripcion.alumno.rut.upper().replace(".", "")
-        if rut_limpio.endswith("K"):
+        # 2. LIMPIEZA EXTREMA DE DATOS (Para evitar el 'parámetro no válido')
+        correo_limpio = str(inscripcion.alumno.correo).strip().lower()
+        nombres_limpios = str(inscripcion.alumno.nombres).strip()
+        apellidos_limpios = str(inscripcion.alumno.apellidos).strip()
+        rut_original = str(inscripcion.alumno.rut).strip()
+        
+        rut_limpio = rut_original.upper().replace(".", "").replace(" ", "")
+        
+        if rut_limpio.endswith("-K"):
             username = rut_limpio.replace("-K", "")
+        elif rut_limpio.endswith("K"):
+            username = rut_limpio.replace("K", "")
         else:
             username = rut_limpio
             
+        username = username.lower() # Moodle exige minúsculas
         password = username 
         
-        # 3. CREAR EL USUARIO
+        # 3. CREAR EL USUARIO EN MOODLE
         params_crear = {
             'wstoken': MOODLE_TOKEN,
             'wsfunction': 'core_user_create_users',
             'moodlewsrestformat': 'json',
             'users[0][username]': username,
             'users[0][password]': password,
-            'users[0][firstname]': inscripcion.alumno.nombres,
-            'users[0][lastname]': inscripcion.alumno.apellidos,
-            'users[0][email]': inscripcion.alumno.correo,
-            'users[0][idnumber]': inscripcion.alumno.rut, 
-
+            'users[0][firstname]': nombres_limpios,
+            'users[0][lastname]': apellidos_limpios,
+            'users[0][email]': correo_limpio,
+            'users[0][idnumber]': rut_original, 
         }
         
         creacion = requests.post(MOODLE_URL, data=params_crear).json()
         
-        # Moodle nos dirá si falló algo específico al crear (ej. "correo duplicado")
+        # 🚨 NUESTRO NUEVO RADAR DE ERRORES EXACTOS
         if isinstance(creacion, dict) and 'exception' in creacion:
-            # Si el error es que ya existe, lo ignoramos y procedemos a matricular. 
-            # Si es otro error, lo atrapamos:
             if "already exists" not in creacion.get('message', '').lower():
-                return False, f"Error en Moodle (Creación): {creacion.get('message')}"
+                detalle_exacto = creacion.get('debuginfo', 'Sin detalles adicionales')
+                return False, f"🔴 Moodle rechazó un dato | Motivo: {creacion.get('message')} | DETALLE: {detalle_exacto} | Correo enviado: {correo_limpio}"
         
         # 4. BUSCAR EL USUARIO
         params_buscar = {
@@ -91,12 +97,11 @@ def enviar_a_moodle(inscripcion):
         }
         busqueda = requests.post(MOODLE_URL, data=params_buscar).json()
         
-        # Protegemos contra respuestas de error de Moodle
         if isinstance(busqueda, dict) and 'exception' in busqueda:
-            return False, f"Error en Moodle (Búsqueda): {busqueda.get('message')}"
+            return False, f"Error en Búsqueda: {busqueda.get('message')}"
             
         if not busqueda or len(busqueda) == 0:
-            return False, f"No logré encontrar al alumno en Moodle tras crearlo. Revisa el correo: {inscripcion.alumno.correo}"
+            return False, f"No logré encontrar al alumno en Moodle tras crearlo. Revisa el correo: {correo_limpio}"
             
         moodle_user_id = busqueda[0]['id']
         
@@ -112,15 +117,14 @@ def enviar_a_moodle(inscripcion):
         matricula = requests.post(MOODLE_URL, data=params_matricular).json()
         
         if isinstance(matricula, dict) and 'exception' in matricula:
-            return False, f"Error en Moodle (Matrícula): {matricula.get('message')}"
+            return False, f"Error en Matrícula: {matricula.get('message')}"
             
     except Exception as error_general:
-        # ¡Esto atrapa el Error 500 y te lo muestra como texto!
-        return False, f"El código falló de imprevisto: {str(error_general)}"
+        return False, f"El código falló: {str(error_general)}"
         
-    # 6. ENVIAR CORREO (Blindado también)
+    # 6. ENVIAR CORREO
     try:
-        cuerpo_bienvenida = f"""Estimad@ {inscripcion.alumno.nombres}:
+        cuerpo_bienvenida = f"""Estimad@ {nombres_limpios}:
 
 Junto con saludar, le informamos que ha sido exitosamente incorporad@ al curso que ha contratado, el cual ya ha sido debidamente informado a la Subsecretaría de Prevención del Delito (SPD).
 
@@ -139,11 +143,6 @@ Contraseña: 12345678-9
 Importante:
 Si su RUN termina en “K”, tanto el usuario como la contraseña deberán ingresarse sin considerar el dígito verificador.
 
-Ejemplo:  
-RUN: 12.345.678-K
-Usuario: 12345678
-Contraseña: 12345678
-
 Ante cualquier duda o dificultad de acceso, puede comunicarse con nosotros a través de nuestros canales oficiales.
 
 Saludos cordiales,  
@@ -154,7 +153,7 @@ contacto@otecuno.cl"""
             subject='Acceso a Plataforma Virtual - OTEC Uno',
             body=cuerpo_bienvenida,
             from_email=settings.DEFAULT_FROM_EMAIL,
-            to=[inscripcion.alumno.correo],
+            to=[correo_limpio],
         )
         correo_bienvenida.send(fail_silently=False)
         
