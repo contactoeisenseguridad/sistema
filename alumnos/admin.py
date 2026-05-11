@@ -150,6 +150,19 @@ contacto@otecuno.cl"""
             from_email=settings.DEFAULT_FROM_EMAIL,
             to=[correo_limpio],
         )
+
+        # 👇 NUEVO: Buscar y adjuntar el manual PDF
+        import os
+        from django.conf import settings
+        
+        # Busca el PDF en la carpeta principal de tu proyecto
+        ruta_pdf = os.path.join(settings.BASE_DIR, 'manual_aula_virtual.pdf')
+        
+        # Si el archivo existe en el servidor, lo adjunta al correo
+        if os.path.exists(ruta_pdf):
+            correo_bienvenida.attach_file(ruta_pdf)
+            
+        # Finalmente, envía el correo
         correo_bienvenida.send(fail_silently=False)
         
     except Exception as error_correo:
