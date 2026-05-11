@@ -63,8 +63,8 @@ class InscripcionInline(admin.TabularInline):
 class PagoInline(admin.TabularInline):
     model = Pago
     extra = 0
-    # 👇 MODIFICADO: Se agregó 'inscripcion' a los campos
-    fields = ('inscripcion', 'metodo_pago', 'monto_total', 'cantidad_cuotas', 'fecha_pago', 'enlace_detalle')
+    # 👇 MODIFICADO: Se agregó 'inscripcion' a los campos y se quitó
+    fields = ('metodo_pago', 'monto_total', 'cantidad_cuotas', 'fecha_pago', 'enlace_detalle')
     readonly_fields = ('enlace_detalle',)
     verbose_name = "Pago"
     verbose_name_plural = "Pagos del alumno"
@@ -247,7 +247,7 @@ class InscripcionAdmin(admin.ModelAdmin):
 @admin.register(Pago)
 class PagoAdmin(admin.ModelAdmin):
     # 👇 MODIFICADO: Se agregó 'inscripcion' a las columnas visuales
-    list_display = ('alumno', 'inscripcion', 'metodo_pago', 'ver_monto_total', 'cantidad_cuotas', 'fecha_pago', 'ver_saldo_pendiente')
+    list_display = ('alumno', 'metodo_pago', 'ver_monto_total', 'cantidad_cuotas', 'fecha_pago', 'ver_saldo_pendiente')
     search_fields = ('alumno__nombres', 'alumno__apellidos', 'alumno__rut')
     list_filter = ('metodo_pago', 'fecha_pago')
     ordering = ('alumno__apellidos', 'alumno__nombres') # 🔤 Orden Alfabético PDF
