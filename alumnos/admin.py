@@ -69,8 +69,8 @@ def enviar_a_moodle(inscripcion):
             'users[0][lastname]': inscripcion.alumno.apellidos,
             'users[0][email]': inscripcion.alumno.correo,
             'users[0][idnumber]': inscripcion.alumno.rut, 
-            'users[0][address]': inscripcion.alumno.direccion or '',
-            'users[0][city]': inscripcion.alumno.comuna or '',
+            'users[0][profile_field_direccion]': inscripcion.alumno.direccion or '',
+            'users[0][profile_field_comuna]': inscripcion.alumno.comuna or '',
             'users[0][preferences][0][type]': 'auth_forcepasswordchange',
             'users[0][preferences][0][value]': 0, 
         }
