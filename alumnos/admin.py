@@ -23,10 +23,10 @@ from .models import (
 admin.site.register(Aviso)
 
 
-# --- FUNCIÓN DE INTEGRACIÓN CON MOODLE ---
+# --- FUNCIÓN DE INTEGRACIÓN CON MOODLE (VERSIÓN BLINDADA) ---
 def enviar_a_moodle(inscripcion):
     MOODLE_URL = "https://virtual.otecuno.cl/webservice/rest/server.php"
-    MOODLE_TOKEN = "c8b2f536042e94746f5331b2948adeb1" # 🔴 ¡REEMPLAZA ESTO POR TU TOKEN DE MOODLE!
+    MOODLE_TOKEN = "c8b2f536042e94746f5331b2948adeb1" # Confirma que este sea el real
     
     CURSOS_MOODLE = {
         'FGS': 73,  
@@ -34,78 +34,98 @@ def enviar_a_moodle(inscripcion):
         'SSPP': 72  
     }
     
-    sigla_curso = None
-    if inscripcion.grupo and "FGS" in inscripcion.grupo.upper(): 
-        sigla_curso = 'FGS'
-    elif "CCTV" in inscripcion.curso.upper(): 
-        sigla_curso = 'CCTV'
-    elif "SSPP" in inscripcion.curso.upper(): 
-        sigla_curso = 'SSPP'
-    
-    if not sigla_curso or sigla_curso not in CURSOS_MOODLE:
-        return False, "No se pudo identificar la sigla del curso (FGS, CCTV, SSPP)."
-
-    curso_id_moodle = CURSOS_MOODLE[sigla_curso]
-    
-    # Limpiar el RUT para el Usuario y Clave (Regla de la K y el guion)
-    rut_limpio = inscripcion.alumno.rut.upper().replace(".", "")
-    
-    if rut_limpio.endswith("K"):
-        username = rut_limpio.replace("-K", "")
-    else:
-        username = rut_limpio
+    try:
+        # 1. Blindamos la lectura de los nombres de grupo y curso transformándolos en texto seguro
+        sigla_curso = None
+        grupo_str = str(inscripcion.grupo).upper() if inscripcion.grupo else ""
+        curso_str = str(inscripcion.curso).upper() if inscripcion.curso else ""
         
-    password = username # La clave es exactamente igual al usuario
-    
-    # CREAR EL USUARIO EN MOODLE
-    params_crear = {
-        'wstoken': MOODLE_TOKEN,
-        'wsfunction': 'core_user_create_users',
-        'moodlewsrestformat': 'json',
-        'users[0][username]': username,
-        'users[0][password]': password,
-        'users[0][firstname]': inscripcion.alumno.nombres,
-        'users[0][lastname]': inscripcion.alumno.apellidos,
-        'users[0][email]': inscripcion.alumno.correo,
-        'users[0][idnumber]': inscripcion.alumno.rut, 
-        'users[0][address]': inscripcion.alumno.direccion or '',
-        'users[0][city]': inscripcion.alumno.comuna or '',
-        'users[0][preferences][0][type]': 'auth_forcepasswordchange',
-        'users[0][preferences][0][value]': 0, 
-    }
-    
-    requests.post(MOODLE_URL, data=params_crear).json()
-    
-    # BUSCAR EL ID INTERNO DEL USUARIO EN MOODLE
-    params_buscar = {
-        'wstoken': MOODLE_TOKEN,
-        'wsfunction': 'core_user_get_users_by_field',
-        'moodlewsrestformat': 'json',
-        'field': 'username',
-        'values[0]': username
-    }
-    busqueda = requests.post(MOODLE_URL, data=params_buscar).json()
-    
-    if not busqueda:
-        return False, f"No se encontró al usuario en Moodle tras crearlo. Correo: {inscripcion.alumno.correo}"
+        if "FGS" in grupo_str: sigla_curso = 'FGS'
+        elif "CCTV" in curso_str: sigla_curso = 'CCTV'
+        elif "SSPP" in curso_str: sigla_curso = 'SSPP'
         
-    moodle_user_id = busqueda[0]['id']
-    
-    # MATRICULAR AL ALUMNO EN EL CURSO
-    params_matricular = {
-        'wstoken': MOODLE_TOKEN,
-        'wsfunction': 'enrol_manual_enrol_users',
-        'moodlewsrestformat': 'json',
-        'enrolments[0][roleid]': 5, 
-        'enrolments[0][userid]': moodle_user_id,
-        'enrolments[0][courseid]': curso_id_moodle
-    }
-    requests.post(MOODLE_URL, data=params_matricular).json()
-    
-    # ENVIAR CORREO DE BIENVENIDA
-    cuerpo_bienvenida = f"""Estimad@ {inscripcion.alumno.nombres}:
+        if not sigla_curso or sigla_curso not in CURSOS_MOODLE:
+            return False, f"No reconocí la sigla del curso (FGS, CCTV, SSPP) en: '{curso_str}' o '{grupo_str}'"
 
-Junto con saludar, le informamos que ha sido exitosamente incorporad@ al de Seguridad que has contratado, el cual ya ha sido debidamente informado a la Subsecretaría de Prevención del Delito (SPD).
+        curso_id_moodle = CURSOS_MOODLE[sigla_curso]
+        
+        # 2. Limpiamos el RUT
+        rut_limpio = inscripcion.alumno.rut.upper().replace(".", "")
+        if rut_limpio.endswith("K"):
+            username = rut_limpio.replace("-K", "")
+        else:
+            username = rut_limpio
+            
+        password = username 
+        
+        # 3. CREAR EL USUARIO
+        params_crear = {
+            'wstoken': MOODLE_TOKEN,
+            'wsfunction': 'core_user_create_users',
+            'moodlewsrestformat': 'json',
+            'users[0][username]': username,
+            'users[0][password]': password,
+            'users[0][firstname]': inscripcion.alumno.nombres,
+            'users[0][lastname]': inscripcion.alumno.apellidos,
+            'users[0][email]': inscripcion.alumno.correo,
+            'users[0][idnumber]': inscripcion.alumno.rut, 
+            'users[0][address]': inscripcion.alumno.direccion or '',
+            'users[0][city]': inscripcion.alumno.comuna or '',
+            'users[0][preferences][0][type]': 'auth_forcepasswordchange',
+            'users[0][preferences][0][value]': 0, 
+        }
+        
+        creacion = requests.post(MOODLE_URL, data=params_crear).json()
+        
+        # Moodle nos dirá si falló algo específico al crear (ej. "correo duplicado")
+        if isinstance(creacion, dict) and 'exception' in creacion:
+            # Si el error es que ya existe, lo ignoramos y procedemos a matricular. 
+            # Si es otro error, lo atrapamos:
+            if "already exists" not in creacion.get('message', '').lower():
+                return False, f"Error en Moodle (Creación): {creacion.get('message')}"
+        
+        # 4. BUSCAR EL USUARIO
+        params_buscar = {
+            'wstoken': MOODLE_TOKEN,
+            'wsfunction': 'core_user_get_users_by_field',
+            'moodlewsrestformat': 'json',
+            'field': 'username',
+            'values[0]': username
+        }
+        busqueda = requests.post(MOODLE_URL, data=params_buscar).json()
+        
+        # Protegemos contra respuestas de error de Moodle
+        if isinstance(busqueda, dict) and 'exception' in busqueda:
+            return False, f"Error en Moodle (Búsqueda): {busqueda.get('message')}"
+            
+        if not busqueda or len(busqueda) == 0:
+            return False, f"No logré encontrar al alumno en Moodle tras crearlo. Revisa el correo: {inscripcion.alumno.correo}"
+            
+        moodle_user_id = busqueda[0]['id']
+        
+        # 5. MATRICULAR
+        params_matricular = {
+            'wstoken': MOODLE_TOKEN,
+            'wsfunction': 'enrol_manual_enrol_users',
+            'moodlewsrestformat': 'json',
+            'enrolments[0][roleid]': 5, 
+            'enrolments[0][userid]': moodle_user_id,
+            'enrolments[0][courseid]': curso_id_moodle
+        }
+        matricula = requests.post(MOODLE_URL, data=params_matricular).json()
+        
+        if isinstance(matricula, dict) and 'exception' in matricula:
+            return False, f"Error en Moodle (Matrícula): {matricula.get('message')}"
+            
+    except Exception as error_general:
+        # ¡Esto atrapa el Error 500 y te lo muestra como texto!
+        return False, f"El código falló de imprevisto: {str(error_general)}"
+        
+    # 6. ENVIAR CORREO (Blindado también)
+    try:
+        cuerpo_bienvenida = f"""Estimad@ {inscripcion.alumno.nombres}:
+
+Junto con saludar, le informamos que ha sido exitosamente incorporad@ al curso que ha contratado, el cual ya ha sido debidamente informado a la Subsecretaría de Prevención del Delito (SPD).
 
 Le recordamos que solo los módulos de Primeros Auxilios, Correcto Uso de Elementos Defensivos y Técnicas de Reducción se desarrollarán de manera presencial. El resto de las actividades se realizará conforme a la modalidad informada.
 
@@ -133,16 +153,18 @@ Saludos cordiales,
 UNO OTEC
 contacto@otecuno.cl"""
 
-    correo_bienvenida = EmailMessage(
-        subject='Acceso a Plataforma Virtual - OTEC Uno',
-        body=cuerpo_bienvenida,
-        from_email=settings.DEFAULT_FROM_EMAIL,
-        to=[inscripcion.alumno.correo],
-    )
-    
-    correo_bienvenida.send(fail_silently=True)
-    
-    return True, "Matriculado con éxito en Moodle."
+        correo_bienvenida = EmailMessage(
+            subject='Acceso a Plataforma Virtual - OTEC Uno',
+            body=cuerpo_bienvenida,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            to=[inscripcion.alumno.correo],
+        )
+        correo_bienvenida.send(fail_silently=False)
+        
+    except Exception as error_correo:
+        return False, f"Se matriculó en Moodle, pero NO se pudo enviar el correo: {str(error_correo)}"
+        
+    return True, "Matriculado con éxito en Moodle y correo enviado."
 
 
 # --- Funciones de Utilidad ---
