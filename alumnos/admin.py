@@ -23,10 +23,12 @@ from .models import (
 admin.site.register(Aviso)
 
 
-# --- FUNCIÓN DE INTEGRACIÓN CON MOODLE (VERSIÓN BLINDADA Y LIMPIA) ---
+# --- FUNCIÓN DE INTEGRACIÓN CON MOODLE (BÚSQUEDA INTELIGENTE DEFINITIVA) ---
 def enviar_a_moodle(inscripcion):
     MOODLE_URL = "https://virtual.otecuno.cl/webservice/rest/server.php"
-    MOODLE_TOKEN = "401791078af1d393dce611bd34c9549e" # 🔴 ¡NO OLVIDES PEGAR TU TOKEN AQUÍ!
+    
+    # 👇 PON TU TOKEN AQUÍ ADENTRO (Borra este texto y pega los números/letras)
+    MOODLE_TOKEN = "401791078af1d393dce611bd34c9549e" 
     
     CURSOS_MOODLE = {
         'FGS': 73,  
@@ -35,6 +37,7 @@ def enviar_a_moodle(inscripcion):
     }
     
     try:
+        # 1. Identificamos el curso
         sigla_curso = None
         grupo_str = str(inscripcion.grupo).upper() if inscripcion.grupo else ""
         curso_str = str(inscripcion.curso).upper() if inscripcion.curso else ""
@@ -48,46 +51,18 @@ def enviar_a_moodle(inscripcion):
 
         curso_id_moodle = CURSOS_MOODLE[sigla_curso]
         
-        # 2. LIMPIEZA EXTREMA DE DATOS (Para evitar el 'parámetro no válido')
+        # 2. Limpieza extrema y REGLA DEL RUT (Sin puntos, sin guion, sin DV)
         correo_limpio = str(inscripcion.alumno.correo).strip().lower()
         nombres_limpios = str(inscripcion.alumno.nombres).strip()
         apellidos_limpios = str(inscripcion.alumno.apellidos).strip()
         rut_original = str(inscripcion.alumno.rut).strip()
         
-        rut_limpio = rut_original.upper().replace(".", "").replace(" ", "")
-        
-        if rut_limpio.endswith("-K"):
-            username = rut_limpio.replace("-K", "")
-        elif rut_limpio.endswith("K"):
-            username = rut_limpio.replace("K", "")
-        else:
-            username = rut_limpio
-            
-        username = username.lower() # Moodle exige minúsculas
+        # Extraemos solo los números antes del guion (Ej: 12.345.678-9 -> 12345678)
+        rut_solo_numeros = rut_original.split('-')[0].replace('.', '').strip()
+        username = rut_solo_numeros.lower()
         password = username 
         
-        # 3. CREAR EL USUARIO EN MOODLE
-        params_crear = {
-            'wstoken': MOODLE_TOKEN,
-            'wsfunction': 'core_user_create_users',
-            'moodlewsrestformat': 'json',
-            'users[0][username]': username,
-            'users[0][password]': password,
-            'users[0][firstname]': nombres_limpios,
-            'users[0][lastname]': apellidos_limpios,
-            'users[0][email]': correo_limpio,
-            'users[0][idnumber]': rut_original, 
-        }
-        
-        creacion = requests.post(MOODLE_URL, data=params_crear).json()
-        
-        # 🚨 NUESTRO NUEVO RADAR DE ERRORES EXACTOS
-        if isinstance(creacion, dict) and 'exception' in creacion:
-            if "already exists" not in creacion.get('message', '').lower():
-                detalle_exacto = creacion.get('debuginfo', 'Sin detalles adicionales')
-                return False, f"🔴 Moodle rechazó un dato | Motivo: {creacion.get('message')} | DETALLE: {detalle_exacto} | Correo enviado: {correo_limpio}"
-        
-        # 4. BUSCAR EL USUARIO
+        # 3. BÚSQUEDA INTELIGENTE: ¿Ya existe en Moodle?
         params_buscar = {
             'wstoken': MOODLE_TOKEN,
             'wsfunction': 'core_user_get_users_by_field',
@@ -97,15 +72,39 @@ def enviar_a_moodle(inscripcion):
         }
         busqueda = requests.post(MOODLE_URL, data=params_buscar).json()
         
-        if isinstance(busqueda, dict) and 'exception' in busqueda:
-            return False, f"Error en Búsqueda: {busqueda.get('message')}"
-            
-        if not busqueda or len(busqueda) == 0:
-            return False, f"No logré encontrar al alumno en Moodle tras crearlo. Revisa el correo: {correo_limpio}"
-            
-        moodle_user_id = busqueda[0]['id']
+        moodle_user_id = None
         
-        # 5. MATRICULAR
+        # Si la lista tiene datos, ¡EL ALUMNO YA EXISTÍA! (Como Gisel)
+        if isinstance(busqueda, list) and len(busqueda) > 0:
+            moodle_user_id = busqueda[0]['id']
+        else:
+            # SI NO EXISTE, PROCEDEMOS A CREARLO (Solo con los datos vitales)
+            params_crear = {
+                'wstoken': MOODLE_TOKEN,
+                'wsfunction': 'core_user_create_users',
+                'moodlewsrestformat': 'json',
+                'users[0][username]': username,
+                'users[0][password]': password,
+                'users[0][firstname]': nombres_limpios,
+                'users[0][lastname]': apellidos_limpios,
+                'users[0][email]': correo_limpio,
+                'users[0][idnumber]': rut_original, 
+            }
+            
+            creacion = requests.post(MOODLE_URL, data=params_crear).json()
+            
+            if isinstance(creacion, dict) and 'exception' in creacion:
+                mensaje = creacion.get('message', '')
+                return False, f"🔴 Falló la creación en Moodle | Detalle: {mensaje} | Revisa si el correo ya lo usa otro alumno."
+            
+            # Volvemos a buscar para obtener su ID interno
+            busqueda_nueva = requests.post(MOODLE_URL, data=params_buscar).json()
+            if isinstance(busqueda_nueva, list) and len(busqueda_nueva) > 0:
+                moodle_user_id = busqueda_nueva[0]['id']
+            else:
+                return False, "Se creó el alumno, pero Moodle no me devuelve su ID interno."
+        
+        # 4. MATRICULAR AL ALUMNO EN EL CURSO (Funciona para nuevos y antiguos)
         params_matricular = {
             'wstoken': MOODLE_TOKEN,
             'wsfunction': 'enrol_manual_enrol_users',
@@ -117,12 +116,12 @@ def enviar_a_moodle(inscripcion):
         matricula = requests.post(MOODLE_URL, data=params_matricular).json()
         
         if isinstance(matricula, dict) and 'exception' in matricula:
-            return False, f"Error en Matrícula: {matricula.get('message')}"
+            return False, f"Error al matricular en el curso de Moodle: {matricula.get('message')}"
             
     except Exception as error_general:
-        return False, f"El código falló: {str(error_general)}"
+        return False, f"El código de integración falló: {str(error_general)}"
         
-    # 6. ENVIAR CORREO
+    # 5. ENVIAR CORREO DE BIENVENIDA AL AULA
     try:
         cuerpo_bienvenida = f"""Estimad@ {nombres_limpios}:
 
@@ -137,11 +136,8 @@ Su nombre de usuario y contraseña corresponden a los datos que fueron informado
 
 Ejemplo:  
 RUN: 12.345.678-9
-Usuario: 12345678-9
-Contraseña: 12345678-9
-
-Importante:
-Si su RUN termina en “K”, tanto el usuario como la contraseña deberán ingresarse sin considerar el dígito verificador.
+Usuario: 12345678
+Contraseña: 12345678
 
 Ante cualquier duda o dificultad de acceso, puede comunicarse con nosotros a través de nuestros canales oficiales.
 
@@ -158,7 +154,7 @@ contacto@otecuno.cl"""
         correo_bienvenida.send(fail_silently=False)
         
     except Exception as error_correo:
-        return False, f"Se matriculó en Moodle, pero NO se pudo enviar el correo: {str(error_correo)}"
+        return False, f"Matriculado con éxito en Moodle, pero falló el envío del correo: {str(error_correo)}"
         
     return True, "Matriculado con éxito en Moodle y correo enviado."
 
@@ -444,236 +440,4 @@ class AlumnoAdmin(admin.ModelAdmin):
                 obj.intentos_codigo += 1
                 messages.error(request, f"Código incorrecto ❌ Intento {obj.intentos_codigo} de 3.")
                 
-        super().save_model(request, obj, form, change)
-
-    def response_change(self, request, obj):
-        if "_validar_codigo" in request.POST: 
-            return HttpResponseRedirect(f"/admin/alumnos/alumno/{obj.id}/change/")
-        return super().response_change(request, obj)
-
-    def response_add(self, request, obj, post_url_continue=None):
-        return HttpResponseRedirect(f"/admin/alumnos/alumno/{obj.id}/")
-
-
-@admin.register(Inscripcion)
-class InscripcionAdmin(admin.ModelAdmin):
-    list_display = ('alumno', 'curso', 'grupo', 'fecha_inicio', 'estado')
-    search_fields = ('alumno__nombres', 'alumno__apellidos', 'alumno__rut', 'curso', 'grupo')
-    list_filter = ('grupo', 'curso', 'estado', 'fecha_inicio')
-    list_per_page = 100
-    ordering = ('-fecha_inicio', 'grupo', 'alumno__apellidos')
-    
-    actions = ['matricular_masivamente_moodle', 'enviar_recuperacion_clave']
-
-    # 👇 Quitamos el @admin.action de aquí arriba
-    def matricular_masivamente_moodle(self, request, queryset):
-        exitos = 0
-        errores = 0
-        for inscripcion in queryset:
-            if not inscripcion.alumno.correo:
-                messages.error(request, f"❌ {inscripcion.alumno} no tiene correo. Moodle exige uno.")
-                errores += 1
-                continue
-                
-            exito, mensaje = enviar_a_moodle(inscripcion)
-            if exito:
-                exitos += 1
-            else:
-                messages.error(request, f"❌ Error en {inscripcion.alumno}: {mensaje}")
-                errores += 1
-                
-        if exitos > 0:
-            messages.success(request, f"✅ {exitos} alumnos matriculados en Moodle y correos de bienvenida enviados.")
-            
-    # 👇 Y le ponemos el nombre universal aquí abajo:
-    matricular_masivamente_moodle.short_description = "🎓 1. Matricular seleccionados en Moodle"
-
-    # 👇 Quitamos el @admin.action de aquí arriba
-    def enviar_recuperacion_clave(self, request, queryset):
-        exitos = 0
-        for inscripcion in queryset:
-            if inscripcion.alumno.correo:
-                cuerpo = f"""Estimad@ {inscripcion.alumno.nombres},
-
-Te enviamos este correo para que puedas recuperar o restablecer su contraseña para el Aula Virtual de OTEC Uno.
-
-Para generar una nueva contraseña, por favor haga clic en el siguiente enlace y siga los pasos indicados en pantalla (deberá ingresar su RUN o su correo electrónico):
-
-👉 https://virtual.otecuno.cl/login/forgot_password.php
-
-Si usted no ha solicitado este cambio, simplemente ignore este correo.
-
-Saludos cordiales,
-Soporte Técnico
-UNO OTEC
-contacto@otecuno.cl"""
-                
-                email = EmailMessage(
-                    subject='Recuperación de contraseña - Aula Virtual',
-                    body=cuerpo,
-                    from_email=settings.DEFAULT_FROM_EMAIL,
-                    to=[inscripcion.alumno.correo],
-                )
-                email.send(fail_silently=True)
-                exitos += 1
-                
-        messages.success(request, f"✅ Se enviaron {exitos} correos con el link de recuperación de contraseña.")
-        
-    # 👇 Y le ponemos el nombre universal aquí abajo:
-    enviar_recuperacion_clave.short_description = "🔑 2. Enviar botón 'Forgot Password' (Recuperar clave)"
-
-    def has_change_permission(self, request, obj=None): 
-        return super().has_change_permission(request, obj)
-        
-    def has_delete_permission(self, request, obj=None): 
-        return request.user.is_superuser
-
-@admin.register(Pago)
-class PagoAdmin(admin.ModelAdmin):
-    # 👇 MODIFICADO: Se agregó 'inscripcion' a las columnas visuales
-    list_display = (
-        'alumno', 'metodo_pago', 'ver_monto_total', 'cantidad_cuotas', 
-        'fecha_pago', 'ver_saldo_pendiente'
-    )
-    search_fields = ('alumno__nombres', 'alumno__apellidos', 'alumno__rut')
-    list_filter = ('metodo_pago', 'fecha_pago')
-    ordering = ('alumno__apellidos', 'alumno__nombres') # 🔤 Orden Alfabético PDF
-    inlines = [CuotaInline]
-    
-    exclude = ('inscripcion',)
-    
-    readonly_fields = ('info_alumno_detalle',)
-
-    # 🔒 Fijar al Alumno (PDF)
-    def get_readonly_fields(self, request, obj=None):
-        # Si el pago ya existe, el campo 'alumno' e 'inscripcion' se bloquean
-        if obj:
-            return self.readonly_fields + ('alumno', 'inscripcion', 'monto_total', 'cantidad_cuotas')
-        return self.readonly_fields
-
-    def info_alumno_detalle(self, obj):
-        if obj and obj.alumno:
-            # 👇 MODIFICADO: Botón mágico para registrar nuevo pago
-            return format_html(
-                '<strong style="font-size: 14px;">{} {}</strong><br>'
-                '<span style="color: #666;">RUT: {}</span><br>'
-                '<span style="color: #666;">Correo: {}</span><br><br>'
-                '<a class="button" style="background-color: #417690; color: white;" href="/admin/alumnos/pago/add/?alumno={}">➕ Registrar nuevo pago/curso para este alumno</a>',
-                obj.alumno.nombres, obj.alumno.apellidos,
-                obj.alumno.rut,
-                obj.alumno.correo,
-                obj.alumno.id
-            )
-        return "Guarde el pago para ver los detalles del alumno."
-    info_alumno_detalle.short_description = "Datos del Alumno"
-
-    # 💲 Formato de Moneda
-    def ver_monto_total(self, obj):
-        return formato_clp(obj.monto_total)
-    ver_monto_total.short_description = "Monto Total"
-
-    def ver_saldo_pendiente(self, obj):
-        total_pagado = sum(c.monto for c in obj.cuotas.all() if c.estado == 'PAGADA')
-        return formato_clp(obj.monto_total - total_pagado)
-    ver_saldo_pendiente.short_description = "Saldo Pendiente"
-
-    # 🚨 INTERCEPTOR: Auditoría automática cuando se paga una cuota
-    def save_formset(self, request, form, formset, change):
-        instances = formset.save(commit=False)
-        for instance in instances:
-            if isinstance(instance, Cuota) and instance.pk:
-                cuota_antigua = Cuota.objects.get(pk=instance.pk)
-                # Si el operador acaba de marcar la cuota como PAGADA
-                if cuota_antigua.estado != 'PAGADA' and instance.estado == 'PAGADA':
-                    Auditoria.objects.create(
-                        usuario=request.user.username,
-                        accion="🔴 PAGO RECIBIDO",
-                        modelo="Cuota",
-                        objeto_id=instance.pk,
-                        descripcion=f"ATENCIÓN: Se marcó como PAGADA la Cuota {instance.numero_cuota} de {formato_clp(instance.monto)} correspondiente a {instance.pago.alumno}."
-                    )
-            instance.save()
-        formset.save_m2m()
-
-    def has_delete_permission(self, request, obj=None):
-        return request.user.is_superuser
-
-
-# 📋 NUEVA VISTA: Panel de Cuotas y Cobranza
-@admin.register(Cuota)
-class CuotaAdmin(admin.ModelAdmin):
-    list_display = (
-        'get_alumno', 'numero_cuota', 'ver_monto', 'fecha_vencimiento', 'estado_display'
-    )
-    list_filter = ('estado', 'fecha_vencimiento')
-    search_fields = ('pago__alumno__nombres', 'pago__alumno__apellidos', 'pago__alumno__rut')
-    ordering = ('fecha_vencimiento',)
-
-    def ver_monto(self, obj):
-        return formato_clp(obj.monto)
-    ver_monto.short_description = "Monto"
-
-    def get_alumno(self, obj):
-        if obj.pago and obj.pago.alumno:
-            return f"{obj.pago.alumno.apellidos} {obj.pago.alumno.nombres}"
-        return "Sin Alumno"
-    get_alumno.short_description = "Alumno"
-
-    def estado_display(self, obj):
-        color = "green" if obj.estado == 'PAGADA' else "red" if obj.fecha_vencimiento < timezone.now().date() else "orange"
-        return format_html('<span style="color: {}; font-weight: bold;">{}</span>', color, obj.estado)
-    estado_display.short_description = "Estado"
-
-    # 👇 MODIFICADO: El operador AHORA PUEDE ENTRAR, pero solo puede editar el Estado.
-    def get_readonly_fields(self, request, obj=None):
-        if not request.user.is_superuser and obj:
-            return ('pago', 'numero_cuota', 'monto', 'fecha_vencimiento', 'fecha_pago')
-        return super().get_readonly_fields(request, obj)
-
-    def has_delete_permission(self, request, obj=None): 
-        return request.user.is_superuser
-
-    # 👇 MODIFICADO: Auditoría también se dispara si el operador lo cambia desde esta ventana.
-    def save_model(self, request, obj, form, change):
-        if change:
-            cuota_antigua = Cuota.objects.get(pk=obj.pk)
-            if cuota_antigua.estado != 'PAGADA' and obj.estado == 'PAGADA':
-                Auditoria.objects.create(
-                    usuario=request.user.username,
-                    accion="🔴 PAGO RECIBIDO",
-                    modelo="Cuota",
-                    objeto_id=obj.pk,
-                    descripcion=f"ATENCIÓN: Se marcó como PAGADA la Cuota {obj.numero_cuota} de {formato_clp(obj.monto)} correspondiente a {obj.pago.alumno}."
-                )
-        super().save_model(request, obj, form, change)
-
-
-@admin.register(GastoOperacional)
-class GastoOperacionalAdmin(admin.ModelAdmin):
-    list_display = ('concepto', 'grupo', 'monto', 'fecha')
-    list_filter = ('grupo', 'fecha')
-    search_fields = ('concepto', 'grupo')
-    list_per_page = 100
-    ordering = ('-fecha',)
-
-
-@admin.register(Auditoria)
-class AuditoriaAdmin(admin.ModelAdmin):
-    list_display = ('usuario', 'accion', 'modelo', 'objeto_id', 'fecha')
-    search_fields = ('usuario', 'accion', 'modelo', 'descripcion')
-    list_filter = ('accion', 'modelo', 'fecha')
-    list_per_page = 100
-    ordering = ('-fecha',)
-
-    def has_add_permission(self, request): 
-        return False
-        
-    def has_change_permission(self, request, obj=None): 
-        return False
-        
-    def has_delete_permission(self, request, obj=None): 
-        return False
-
-admin.site.site_header = "Sistema de Matrícula - OTEC Uno"
-admin.site.site_title = "Sistema de Matrícula - OTEC Uno"
-admin.site.index_title = "Panel de administración"
+        super().save_model(request, obj, form,
