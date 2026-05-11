@@ -446,10 +446,9 @@ class InscripcionAdmin(admin.ModelAdmin):
     list_per_page = 100
     ordering = ('-fecha_inicio', 'grupo', 'alumno__apellidos')
     
-    # 👇 AHORA TENEMOS 2 ACCIONES MÁGICAS
     actions = ['matricular_masivamente_moodle', 'enviar_recuperacion_clave']
 
-    @admin.action(description="🎓 1. Matricular seleccionados en Moodle")
+    # 👇 Quitamos el @admin.action de aquí arriba
     def matricular_masivamente_moodle(self, request, queryset):
         exitos = 0
         errores = 0
@@ -468,8 +467,11 @@ class InscripcionAdmin(admin.ModelAdmin):
                 
         if exitos > 0:
             messages.success(request, f"✅ {exitos} alumnos matriculados en Moodle y correos de bienvenida enviados.")
+            
+    # 👇 Y le ponemos el nombre universal aquí abajo:
+    matricular_masivamente_moodle.short_description = "🎓 1. Matricular seleccionados en Moodle"
 
-    @admin.action(description="🔑 2. Enviar botón 'Forgot Password' (Recuperar clave)")
+    # 👇 Quitamos el @admin.action de aquí arriba
     def enviar_recuperacion_clave(self, request, queryset):
         exitos = 0
         for inscripcion in queryset:
@@ -499,13 +501,15 @@ contacto@otecuno.cl"""
                 exitos += 1
                 
         messages.success(request, f"✅ Se enviaron {exitos} correos con el link de recuperación de contraseña.")
+        
+    # 👇 Y le ponemos el nombre universal aquí abajo:
+    enviar_recuperacion_clave.short_description = "🔑 2. Enviar botón 'Forgot Password' (Recuperar clave)"
 
     def has_change_permission(self, request, obj=None): 
         return super().has_change_permission(request, obj)
         
     def has_delete_permission(self, request, obj=None): 
         return request.user.is_superuser
-
 
 @admin.register(Pago)
 class PagoAdmin(admin.ModelAdmin):
