@@ -1,25 +1,20 @@
 import os
 import random
 import string
-import openpyxl  # 👈 LIBRERÍA NUEVA PARA LEER EXCEL
 import requests
+import openpyxl  # 👈 LIBRERÍA NUEVA PARA LEER EXCEL
 from datetime import timedelta
 
+from django.conf import settings
 from django.contrib import admin, messages
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
-from django.core.mail import EmailMessage
+from django.core.mail import EmailMessage, send_mail
 from django.db.models import OuterRef, Subquery, Sum
 from django.http import HttpResponseRedirect
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
 from django.utils import timezone
 from django.utils.html import format_html
-from django.conf import settings
-from django.shortcuts import render, get_object_or_404
-from django.contrib import messages
-from django.core.mail import send_mail
-from django.utils import timezone
-from .models import Alumno, SesionClase, Asistencia, Modulo, Inscripcion
 
 from .models import (
     Alumno, Inscripcion, Auditoria, Aviso, Pago, Cuota, GastoOperacional,
@@ -111,7 +106,8 @@ def enviar_a_moodle(inscripcion):
         
     return True, "Matriculado con éxito en Moodle y correo enviado."
 
-def formato_clp(valor): return f"$ {valor:,.0f}.-".replace(",", ".") if valor else "$ 0.-"
+def formato_clp(valor): 
+    return f"$ {valor:,.0f}.-".replace(",", ".") if valor else "$ 0.-"
 
 def validar_rut_chileno(rut):
     rut = rut.upper().replace(".", "").replace("-", "").strip()
@@ -144,17 +140,22 @@ class PagoInline(admin.TabularInline):
     readonly_fields = ('enlace_detalle',)
     
     def enlace_detalle(self, obj):
-        if obj.pk: return format_html('<a class="button" href="/admin/alumnos/pago/{}/change/" target="_blank">💸 Administrar Cuotas</a>', obj.pk)
+        if obj.pk: 
+            return format_html('<a class="button" href="/admin/alumnos/pago/{}/change/" target="_blank">💸 Administrar Cuotas</a>', obj.pk)
         return "Guarde el alumno para generar pagos"
 
 class CuotaInline(admin.TabularInline):
     model = Cuota
     extra = 0
     fields = ('numero_cuota', 'monto', 'fecha_vencimiento', 'fecha_pago', 'estado')
+
     def get_readonly_fields(self, request, obj=None):
-        if not request.user.is_superuser and obj: return ('numero_cuota', 'monto', 'fecha_vencimiento', 'fecha_pago')
+        if not request.user.is_superuser and obj: 
+            return ('numero_cuota', 'monto', 'fecha_vencimiento', 'fecha_pago')
         return super().get_readonly_fields(request, obj)
-    def has_delete_permission(self, request, obj=None): return request.user.is_superuser
+
+    def has_delete_permission(self, request, obj=None): 
+        return request.user.is_superuser
 
 
 # ==========================================
@@ -165,16 +166,133 @@ admin.site.register(Aviso)
 
 @admin.register(Alumno)
 class AlumnoAdmin(admin.ModelAdmin):
-    list_display = ('apellidos', 'nombres', 'rut', 'estado_rut', 'estado_correo')
+    list_display = (
+        'apellidos', 'nombres', 'rut', 'estado_rut', 'grupo_actual', 'estado_correo'
+    )
     search_fields = ('nombres', 'apellidos', 'rut', 'correo')
-    list_filter = ('correo_confirmado', 'rut_confirmado')
-    ordering = ('apellidos', 'nombres')
+    list_filter = (GrupoAlumnoFilter, 'correo_confirmado', 'rut_confirmado')
+    list_per_page = 100
+    ordering = ('apellidos', 'nombres') # 🔤 Orden Alfabético PDF
+    
     inlines = [InscripcionInline, PagoInline]
     
-    def estado_rut(self, obj): return "✅ Válido" if obj.rut_confirmado else "❌ Pendiente"
-    def estado_correo(self, obj): return "✅ Confirmado" if obj.correo_confirmado else "❌ Pendiente"
+    fields = (
+        'nombres', 'apellidos', 'rut', 'rut_confirmado', 'direccion', 'comuna', 
+        'correo', 'telefono', 'fecha_registro', 'boton_enviar_codigo', 
+        'correo_confirmado', 'codigo_ingresado', 'boton_validar_codigo', 'ficha_alumno'
+    )
+    readonly_fields = (
+        'fecha_registro', 'rut_confirmado', 'correo_confirmado', 
+        'boton_enviar_codigo', 'boton_validar_codigo', 'ficha_alumno'
+    )
+
+    def estado_rut(self, obj): 
+        return "✅ Válido" if obj.rut_confirmado else "❌ Pendiente/Inválido"
+    estado_rut.short_description = "RUT"
+
+    def estado_correo(self, obj): 
+        return "✅ Confirmado" if obj.correo_confirmado else "❌ Pendiente"
+    estado_correo.short_description = "Correo"
+
+    def boton_enviar_codigo(self, obj):
+        if obj.id: 
+            return format_html(
+                '<a class="button" href="/admin/alumnos/alumno/enviar-codigo/{}/">📧 Enviar código al correo</a>', 
+                obj.id
+            )
+        return "Primero debe guardar el alumno."
+    boton_enviar_codigo.short_description = "Confirmación de correo"
+
+    def boton_validar_codigo(self, obj):
+        if obj.id: 
+            return format_html(
+                '<button type="submit" name="_validar_codigo" class="button">{}</button>', 
+                "✅ Validar código"
+            )
+        return "Primero debe guardar el alumno."
+    boton_validar_codigo.short_description = "Validar correo"
+
+    def ficha_alumno(self, obj):
+        if obj.id: 
+            return format_html(
+                '<a class="button" href="/alumno/{}/" target="_blank">🔎 Ver ficha / Generar contrato</a>', 
+                obj.id
+            )
+        return "Primero debe guardar el alumno."
+    ficha_alumno.short_description = "Ficha del alumno"
+
+    def get_urls(self):
+        from django.urls import path
+        urls = super().get_urls()
+        custom_urls = [
+            path('enviar-codigo/<int:alumno_id>/', self.admin_site.admin_view(self.enviar_codigo))
+        ]
+        return custom_urls + urls
+
+    def enviar_codigo(self, request, alumno_id):
+        alumno = Alumno.objects.get(id=alumno_id)
+        if not alumno.correo:
+            messages.error(request, "El alumno no tiene correo registrado.")
+            return HttpResponseRedirect(f"/admin/alumnos/alumno/{alumno.id}/change/")
+            
+        alumno.codigo_confirmacion = str(random.randint(1000, 9999))
+        alumno.fecha_codigo = timezone.now()
+        alumno.intentos_codigo = 0
+        alumno.codigo_ingresado = None
+        alumno.correo_confirmado = False
+        alumno.save()
+        
+        email = EmailMessage(
+            subject='Código de confirmación de correo',
+            body=(f'Estimado/a {alumno.nombres},\n\n'
+                  f'Su código de confirmación es: {alumno.codigo_confirmacion}\n\n'
+                  f'Este código tendrá una vigencia de 10 minutos.\n\n'
+                  f'OTEC Uno EIRL\nPreocupados por tu futuro'),
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            to=[alumno.correo],
+        )
+        try:
+            email.send(fail_silently=False)
+            Auditoria.objects.create(
+                usuario=request.user.username, 
+                accion="ENVIAR CODIGO CORREO", 
+                modelo="Alumno", 
+                objeto_id=alumno.id, 
+                descripcion=f"Se generó y envió nuevo código a {alumno.correo}"
+            )
+            messages.success(request, f"Código enviado correctamente a {alumno.correo}.")
+        except Exception as e:
+            messages.error(request, f"No se pudo enviar el correo: {e}")
+            
+        return HttpResponseRedirect(f"/admin/alumnos/alumno/{alumno.id}/change/")
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        ultima_inscripcion = Inscripcion.objects.filter(alumno=OuterRef('pk')).order_by('-fecha_inicio')
+        return qs.annotate(grupo_orden=Subquery(ultima_inscripcion.values('grupo')[:1]))
+
+    def grupo_actual(self, obj): 
+        return obj.grupo_orden or '-'
+    grupo_actual.short_description = 'Grupo'
+    grupo_actual.admin_order_field = 'grupo_orden'
+
+    def get_search_results(self, request, queryset, search_term):
+        queryset, use_distinct = super().get_search_results(request, queryset, search_term)
+        if search_term:
+            alumnos_por_grupo = Inscripcion.objects.filter(
+                grupo__icontains=search_term
+            ).values_list('alumno_id', flat=True)
+            queryset |= self.model.objects.filter(id__in=alumnos_por_grupo)
+        return queryset, use_distinct
+
+    def has_change_permission(self, request, obj=None): 
+        return super().has_change_permission(request, obj)
+        
+    def has_delete_permission(self, request, obj=None): 
+        return request.user.is_superuser
 
     def save_model(self, request, obj, form, change):
+        rut_original = obj.rut
         if obj.rut:
             rut_limpio = obj.rut.upper().replace(".", "").replace("-", "").strip()
             if validar_rut_chileno(rut_limpio):
@@ -182,9 +300,50 @@ class AlumnoAdmin(admin.ModelAdmin):
                 obj.rut_confirmado = True
             else:
                 obj.rut_confirmado = False
-                messages.error(request, f"RUT Inválido: {obj.rut}")
+                messages.error(request, f"El RUT ingresado no es válido: {rut_original}")
+                Auditoria.objects.create(
+                    usuario=request.user.username, 
+                    accion="RUT INVALIDO", 
+                    modelo="Alumno", 
+                    objeto_id=obj.id or 0, 
+                    descripcion=f"RUT inválido ingresado: {rut_original}"
+                )
+
+        if "_validar_codigo" in request.POST:
+            codigo_ingresado = str(obj.codigo_ingresado).strip() if obj.codigo_ingresado else ""
+            codigo_real = str(obj.codigo_confirmacion).strip() if obj.codigo_confirmacion else ""
+            
+            if obj.intentos_codigo >= 3: 
+                messages.error(request, "Demasiados intentos. Debe enviar un nuevo código.")
+            elif not obj.fecha_codigo: 
+                messages.error(request, "Debe enviar primero un código al correo.")
+            elif timezone.now() > (obj.fecha_codigo + timedelta(minutes=10)): 
+                messages.error(request, "El código expiró. Debe enviar un nuevo código.")
+            elif codigo_ingresado and codigo_ingresado == codigo_real:
+                obj.correo_confirmado = True
+                obj.codigo_ingresado = None
+                obj.intentos_codigo = 0
+                messages.success(request, "Correo confirmado correctamente ✅")
+                Auditoria.objects.create(
+                    usuario=request.user.username, 
+                    accion="CONFIRMAR CORREO", 
+                    modelo="Alumno", 
+                    objeto_id=obj.id or 0, 
+                    descripcion=f"Correo confirmado para {obj.correo}"
+                )
+            else:
+                obj.intentos_codigo += 1
+                messages.error(request, f"Código incorrecto ❌ Intento {obj.intentos_codigo} de 3.")
+                
         super().save_model(request, obj, form, change)
 
+    def response_change(self, request, obj):
+        if "_validar_codigo" in request.POST: 
+            return HttpResponseRedirect(f"/admin/alumnos/alumno/{obj.id}/change/")
+        return super().response_change(request, obj)
+
+    def response_add(self, request, obj, post_url_continue=None):
+        return HttpResponseRedirect(f"/admin/alumnos/alumno/{obj.id}/")
 
 @admin.register(Inscripcion)
 class InscripcionAdmin(admin.ModelAdmin):
@@ -242,7 +401,6 @@ class ModuloAdmin(admin.ModelAdmin):
     list_display = ('nombre',)
     search_fields = ('nombre',)
 
-from django.utils.html import format_html
 
 @admin.register(SesionClase)
 class SesionClaseAdmin(admin.ModelAdmin):
@@ -343,6 +501,7 @@ class PlanillaSPDAdmin(admin.ModelAdmin):
 
     procesar_excel_spd_action.short_description = "📥 Leer Excel y Generar Calendario de Clases"
 
+
 # ==========================================
 # 5. VISTA DEL RELATOR (ASISTENCIA)
 # ==========================================
@@ -388,6 +547,7 @@ def vista_pasar_asistencia(request):
         return render(request, 'exito_asistencia.html')
 
     return render(request, 'login_relator.html')
+
 
 # ==========================================
 # 6. PORTAL DE ASISTENCIA
