@@ -234,7 +234,8 @@ class PerfilUsuarioAdmin(admin.ModelAdmin):
 
 @admin.register(Modulo)
 class ModuloAdmin(admin.ModelAdmin):
-    list_display = ('nombre',)
+    list_display = ('nombre', 'modalidad_defecto')
+    list_editable = ('modalidad_defecto',) # Cambia online/presencial sin entrar al módulo
     search_fields = ('nombre',)
 
 
@@ -332,7 +333,7 @@ class PlanillaSPDAdmin(admin.ModelAdmin):
                                 fecha=fecha_val,
                                 bloque_horario=str(horario_val).strip() if horario_val else "Sin Horario",
                                 modulo=mod_obj,
-                                modalidad='ONLINE' # Formato estándar SPD
+                                modalidad=mod_obj.modalidad_defecto
                             )
                             exitos += 1
                         except Exception:

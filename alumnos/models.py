@@ -204,10 +204,15 @@ class PerfilUsuario(models.Model):
 
 
 class Modulo(models.Model):
-    nombre = models.CharField(max_length=200, help_text="Ej: Legislación Aplicada")
-    
+    MODALIDADES = [
+        ('ONLINE', 'Aula Virtual (Online)'),
+        ('PRESENCIAL', 'Terreno (Presencial)'),
+    ]
+    nombre = models.CharField(max_length=200)
+    modalidad_defecto = models.CharField(max_length=20, choices=MODALIDADES, default='ONLINE')
+
     def __str__(self):
-        return self.nombre
+        return f"{self.nombre} ({self.get_modalidad_defecto_display()})"
 
 
 class SesionClase(models.Model):
