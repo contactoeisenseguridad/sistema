@@ -15,35 +15,36 @@ class Alumno(models.Model):
     telefono = models.CharField(max_length=20, blank=True, null=True)
     fecha_registro = models.DateTimeField(auto_now_add=True)
 
-    # 🟢 NUEVO: Métodos para el Admin
-    def estado_rut_icon(self):
-        if self.rut_confirmado:
-            return format_html('<span style="color: #28a745; font-weight: bold;">❌ Confirmado</span>') # X de 'marcado' o ícono
-        return format_html('<span style="color: #dc3545; font-weight: bold;">❌ Pendiente</span>')
-    estado_rut_icon.short_description = 'ESTADO RUT'
+    rut_confirmado = models.BooleanField(default=False)
 
-    def estado_correo_icon(self):
-        if self.correo_confirmado:
-            return format_html('<span style="color: #28a745; font-weight: bold;">❌ Confirmado</span>')
-        return format_html('<span style="color: #dc3545; font-weight: bold;">❌ Pendiente</span>')
-    estado_correo_icon.short_description = 'ESTADO CORREO'
+    # 🔵 Confirmación de correo
+    correo_confirmado = models.BooleanField(default=False)
+    codigo_confirmacion = models.CharField(max_length=4, blank=True, null=True)
+    codigo_ingresado = models.CharField(
+        max_length=4,
+        blank=True,
+        null=True,
+        verbose_name="Código de confirmación"
+    )
+    fecha_codigo = models.DateTimeField(blank=True, null=True)
+    intentos_codigo = models.IntegerField(default=0)
 
-    def grupo_actual(self):
-        # Busca el grupo en la tabla de inscripciones
-        inscripcion = self.inscripciones.last()
-        return inscripcion.grupo if inscripcion else "SIN GRUPO"
-    grupo_actual.short_description = 'GRUPO'
-
-    def ver_ficha(self):
-        return format_html('<a style="color: #007bff; font-weight: bold; text-decoration: underline;" href="/admin/alumnos/alumno/{}/change/">VER DETALLE</a>', self.id)
-    ver_ficha.short_description = 'ACCIONES'
+    class Meta:
+        ordering = ['apellidos', 'nombres']
 
     def save(self, *args, **kwargs):
-        # ... (tu lógica de .upper() y random se mantiene igual) ...
-        super().save(*args, **kwargs)
+        if self.nombres: self.nombres = self.nombres.upper()
+        if self.apellidos: self.apellidos = self.apellidos.upper()
+        if self.rut: self.rut = self.rut.upper()
+        if self.direccion: self.direccion = self.direccion.upper()
+        if self.comuna: self.comuna = self.comuna.upper()
+        if self.correo: self.correo = self.correo.upper()
+        if self.telefono: self.telefono = self.telefono.upper()
 
-    def __str__(self):
-        return f"{self.apellidos} {self.nombres}"
+        if not self.codigo_confirmacion:
+            self.codigo_confirmacion = str(random.randint(1000, 9999))
+
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.apellidos} {self.nombres}"
