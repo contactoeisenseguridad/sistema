@@ -15,7 +15,7 @@ from django.shortcuts import render
 from django.utils import timezone
 from django.utils.html import format_html
 from django.conf import settings
-from django.shortcuts import render, get_object_or_create
+from django.shortcuts import render, get_object_or_404
 from django.contrib import messages
 from django.core.mail import send_mail
 from django.utils import timezone
@@ -397,7 +397,8 @@ def portal_asistencia(request):
         # Convertimos grupo a MAYÚSCULAS automáticamente
         grupo_input = request.POST.get('grupo').strip().upper()
         
-        modulo = get_object_or_create(Modulo, id=modulo_id)
+        # Cambia esa línea por esta:
+        modulo = get_object_or_404(Modulo, id=modulo_id)
         
         # 1. Buscar la sesión de hoy para ese grupo y módulo
         hoy = timezone.now().date()
