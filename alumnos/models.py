@@ -204,17 +204,7 @@ class PerfilUsuario(models.Model):
 
 
 class Modulo(models.Model):
-    MODALIDADES = [
-        ('ONLINE', 'Aula Virtual (Online)'),
-        ('PRESENCIAL', 'Terreno (Presencial)'),
-    ]
     nombre = models.CharField(max_length=200)
-    # 👇 Revisa que el nombre sea exactamente este
-    modalidad_defecto = models.CharField(
-        max_length=20, 
-        choices=MODALIDADES, 
-        default='ONLINE'
-    )
 
     def __str__(self):
         return self.nombre

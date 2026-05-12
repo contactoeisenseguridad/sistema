@@ -234,45 +234,19 @@ class PerfilUsuarioAdmin(admin.ModelAdmin):
 
 @admin.register(Modulo)
 class ModuloAdmin(admin.ModelAdmin):
-    # Asegúrate de que el nombre coincida con el del modelo
-    list_display = ('nombre', 'modalidad_defecto') 
-    list_editable = ('modalidad_defecto',)
+    list_display = ('nombre',)
     search_fields = ('nombre',)
 
 from django.utils.html import format_html
 
 @admin.register(SesionClase)
 class SesionClaseAdmin(admin.ModelAdmin):
-    # Esto habilita la barra de fechas arriba
     date_hierarchy = 'fecha'
-    
-    # Mostramos lo que te importa: Fecha, Hora, Qué asignatura es y cómo se dicta
-    list_display = ('fecha', 'bloque_horario', 'modulo', 'tipo_modalidad', 'grupo')
-    
-    # Filtros a la derecha para discriminar rápido
-    list_filter = ('modalidad', 'grupo', 'modulo')
-    
-    # Buscador
-    search_fields = ('modulo__nombre', 'grupo__nombre')
-    
-    # Ordenar por fecha de la más antigua a la más nueva
+    # Solo lo esencial: Fecha, Hora, Módulo y Grupo
+    list_display = ('fecha', 'bloque_horario', 'modulo', 'grupo')
+    list_filter = ('grupo', 'modulo')
+    search_fields = ('modulo__nombre', 'grupo')
     ordering = ('fecha', 'bloque_horario')
-
-    # Función para ver el tipo de clase con colores y que no falle nunca
-    def tipo_modalidad(self, obj):
-        if not obj.modalidad:
-            return "No definida"
-            
-        color = "#2e7d32" if "ONLINE" in obj.modalidad.upper() else "#d32f2f"
-        texto = "🌐 ONLINE" if "ONLINE" in obj.modalidad.upper() else "📍 PRESENCIAL"
-        
-        return format_html(
-            '<span style="color: {}; font-weight: bold;">{}</span>',
-            color,
-            texto
-        )
-    
-    tipo_modalidad.short_description = 'Modalidad'
 
 
 @admin.register(Asistencia)
@@ -332,8 +306,7 @@ class PlanillaSPDAdmin(admin.ModelAdmin):
                                 grupo=planilla.grupo,
                                 fecha=fecha_val,
                                 bloque_horario=str(horario_val).strip() if horario_val else "Sin Horario",
-                                modulo=mod_obj,
-                                modalidad=mod_obj.modalidad_defecto
+                                modulo=mod_obj
                             )
                             exitos += 1
                         except Exception:
