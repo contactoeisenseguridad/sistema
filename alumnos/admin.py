@@ -220,7 +220,7 @@ class CuotaAdmin(admin.ModelAdmin):
 
 @admin.register(PerfilUsuario)
 class PerfilUsuarioAdmin(admin.ModelAdmin):
-    list_display = ('user', 'rol', 'bloqueado', 'intentos_fallidos')
+    list_display = ('user', 'rut', 'rol', 'bloqueado', 'intentos_fallidos')
     list_filter = ('rol', 'bloqueado')
     search_fields = ('user__username', 'user__first_name')
     actions = ['desbloquear_usuarios']
