@@ -241,10 +241,14 @@ class ModuloAdmin(admin.ModelAdmin):
 @admin.register(SesionClase)
 class SesionClaseAdmin(admin.ModelAdmin):
     date_hierarchy = 'fecha' 
-    list_display = ('fecha', 'ver_horario', 'modulo', 'ver_relator', 'grupo', 'modalidad')
+    # Quitamos 'ver_relator' temporalmente de list_display para asegurar que cargue
+    list_display = ('fecha', 'bloque_horario', 'modulo', 'relator', 'grupo', 'modalidad')
     list_filter = ('modalidad', 'relator', 'grupo')
-    search_fields = ('grupo', 'modulo__nombre', 'relator__first_name', 'relator__last_name')
+    search_fields = ('grupo', 'modulo__nombre', 'relator__username')
     ordering = ('-fecha', 'bloque_horario')
+
+    # Hacemos que el relator sea editable directamente desde la lista para que sea más rápido
+    list_editable = ('relator',)
 
     def ver_horario(self, obj):
         return format_html('<b>{}</b>', obj.bloque_horario)
