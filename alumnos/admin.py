@@ -264,18 +264,18 @@ class AsistenciaAdmin(admin.ModelAdmin):
     search_fields = ('alumno__rut', 'alumno__apellidos', 'sesion__modulo__nombre')
 
     def get_readonly_fields(self, request, obj=None):
-    # 👇 CAMBIO: Si es Superusuario, tiene acceso total SIEMPRE
-    if request.user.is_superuser:
+        # 👇 CAMBIO: Si es Superusuario, tiene acceso total SIEMPRE
+        if request.user.is_superuser:
         return []
     
-    # Si no es superusuario, verificamos si tiene perfil de fiscalizador
-    try:
-        if request.user.perfilusuario.rol == 'FISCALIZADOR':
-            return [f.name for f in self.model._meta.fields]
-    except:
-        pass
+        # Si no es superusuario, verificamos si tiene perfil de fiscalizador
+        try:
+            if request.user.perfilusuario.rol == 'FISCALIZADOR':
+                return [f.name for f in self.model._meta.fields]
+        except:
+            pass
         
-    return super().get_readonly_fields(request, obj)
+        return super().get_readonly_fields(request, obj)
 
 
 @admin.register(PlanillaSPD)
