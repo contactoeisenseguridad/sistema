@@ -283,7 +283,6 @@ class PlanillaSPDAdmin(admin.ModelAdmin):
     actions = ['procesar_excel_spd']
 
     def procesar_excel_spd(self, request, queryset):
-        # 👇 MAGIA DEL EXCEL: Lee el archivo y crea la programación
         exitos = 0
         for planilla in queryset:
             if planilla.procesado: continue
@@ -291,43 +290,52 @@ class PlanillaSPDAdmin(admin.ModelAdmin):
             try:
                 wb = openpyxl.load_workbook(planilla.archivo_excel.path, data_only=True)
                 
-                # 1. Leer Módulos (Suponiendo que hay una hoja "CONTENIDOS DEL CURSO")
+                # 1. Leer Módulos desde "CONTENIDOS DEL CURSO"
                 if "CONTENIDOS DEL CURSO" in wb.sheetnames:
                     hoja_modulos = wb["CONTENIDOS DEL CURSO"]
+                    # La SPD suele empezar los datos en la fila 2 o 3
                     for row in hoja_modulos.iter_rows(min_row=2, values_only=True):
                         nombre_modulo = str(row[0]).strip() if row[0] else None
-                        if nombre_modulo:
+                        if nombre_modulo and nombre_modulo.lower() != 'none':
                             Modulo.objects.get_or_create(nombre=nombre_modulo)
                 
-                # 2. Leer Sesiones (Suponiendo que están en "Hoja 1")
-                # Estructura supuesta: Fecha | Horario | Modulo | Modalidad
-                if "Hoja 1" in wb.sheetnames:
-                    hoja_sesiones = wb["Hoja 1"]
+                # 2. Leer Sesiones desde "Hoja1" (Nombre oficial SPD)
+                if "Hoja1" in wb.sheetnames:
+                    hoja_sesiones = wb["Hoja1"]
                     for row in hoja_sesiones.iter_rows(min_row=2, values_only=True):
                         try:
-                            if not row[0]: continue # Fila vacía
+                            # Saltamos si la celda de fecha (A) está vacía
+                            if not row[0]: continue 
                             
-                            modulo_obj, _ = Modulo.objects.get_or_create(nombre=str(row[2]).strip())
+                            # Mapeo SPD: Col A: Fecha | Col B: Horario | Col C: Módulo | Col D: Modalidad
+                            fecha_clase = row[0]
+                            horario_clase = str(row[1]).strip()
+                            nombre_modulo_excel = str(row[2]).strip()
+                            modalidad_excel = str(row[3]).strip().upper() if row[3] else 'ONLINE'
+
+                            # Buscamos o creamos el módulo para que no falle la relación
+                            modulo_obj, _ = Modulo.objects.get_or_create(nombre=nombre_modulo_excel)
                             
                             SesionClase.objects.create(
                                 grupo=planilla.grupo,
-                                fecha=row[0], # Asegurarse que el Excel tenga formato Fecha
-                                bloque_horario=str(row[1]).strip(),
+                                fecha=fecha_clase,
+                                bloque_horario=horario_clase,
                                 modulo=modulo_obj,
-                                modalidad=str(row[3]).strip().upper() if len(row)>3 and row[3] else 'ONLINE'
+                                modalidad='PRESENCIAL' if 'PRESENCIAL' in modalidad_excel or 'TERRENO' in modalidad_excel else 'ONLINE'
                             )
                         except Exception as e:
-                            messages.warning(request, f"Omitiendo fila por error de formato: {e}")
+                            print(f"Error en fila: {e}") # Para debug
+                            continue
                 
                 planilla.procesado = True
                 planilla.save()
                 exitos += 1
                 
             except Exception as e:
-                messages.error(request, f"Error al procesar el Excel del grupo {planilla.grupo}: {e}")
+                messages.error(request, f"Error crítico en grupo {planilla.grupo}: {str(e)}")
                 
         if exitos > 0:
-            messages.success(request, f"✅ {exitos} planillas procesadas. El calendario de clases ha sido generado automáticamente.")
+            messages.success(request, f"✅ Se procesó la planilla oficial. Revisa 'Programación de Clases' para el grupo {planilla.grupo}.")
     
     procesar_excel_spd.short_description = "📥 Leer Excel y Generar Calendario de Clases"
 
