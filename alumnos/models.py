@@ -209,10 +209,15 @@ class Modulo(models.Model):
         ('PRESENCIAL', 'Terreno (Presencial)'),
     ]
     nombre = models.CharField(max_length=200)
-    modalidad_defecto = models.CharField(max_length=20, choices=MODALIDADES, default='ONLINE')
+    # 👇 Revisa que el nombre sea exactamente este
+    modalidad_defecto = models.CharField(
+        max_length=20, 
+        choices=MODALIDADES, 
+        default='ONLINE'
+    )
 
     def __str__(self):
-        return f"{self.nombre} ({self.get_modalidad_defecto_display()})"
+        return self.nombre
 
 
 class SesionClase(models.Model):

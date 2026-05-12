@@ -234,10 +234,10 @@ class PerfilUsuarioAdmin(admin.ModelAdmin):
 
 @admin.register(Modulo)
 class ModuloAdmin(admin.ModelAdmin):
-    list_display = ('nombre', 'modalidad_defecto')
-    list_editable = ('modalidad_defecto',) # Cambia online/presencial sin entrar al módulo
+    # Asegúrate de que el nombre coincida con el del modelo
+    list_display = ('nombre', 'modalidad_defecto') 
+    list_editable = ('modalidad_defecto',)
     search_fields = ('nombre',)
-
 
 from django.utils.html import format_html
 
