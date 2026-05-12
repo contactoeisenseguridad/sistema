@@ -255,27 +255,32 @@ class SesionClaseAdmin(admin.ModelAdmin):
 
 
 @admin.register(Asistencia)
+@admin.register(Asistencia)
 class AsistenciaAdmin(admin.ModelAdmin):
-    list_display = ('alumno', 'sesion', 'presente', 'fecha_modificacion')
-    list_filter = ('presente', 'sesion__grupo')
-    
+    # Quitamos 'fecha_modificacion' de la lista
+    list_display = ('alumno', 'sesion', 'presente') 
+    list_filter = ('presente', 'sesion__grupo', 'sesion__fecha')
+    search_fields = ('alumno__rut', 'alumno__apellidos')
+
     def save_model(self, request, obj, form, change):
-        # Si se está modificando un registro existente
+        # Si el Superusuario cambia la asistencia, enviamos el correo de aviso
         if change:
             super().save_model(request, obj, form, change)
-            # Notificar al alumno de la corrección
             estado_texto = "PRESENTE" if obj.presente else "AUSENTE"
-            send_mail(
-                subject='Actualización de Asistencia - OTEC UNO',
-                message=f'Estimado(a) {obj.alumno.nombres}:\n\n'
-                        f'Se ha realizado una actualización manual en su registro de asistencia '
-                        f'del día {obj.sesion.fecha} ({obj.sesion.modulo.nombre}).\n'
-                        f'Su nuevo estado es: {estado_texto}.\n\n'
-                        f'Ante cualquier duda, escriba a contacto@otecuno.cl',
-                from_email='contacto@otecuno.cl',
-                recipient_list=[obj.alumno.correo],
-                fail_silently=True,
-            )
+            try:
+                send_mail(
+                    subject='Actualización de Asistencia - OTEC UNO',
+                    message=f'Estimado(a) {obj.alumno.nombres}:\n\n'
+                            f'Se ha realizado una actualización manual en su registro de asistencia '
+                            f'del día {obj.sesion.fecha} ({obj.sesion.modulo.nombre}).\n'
+                            f'Su nuevo estado es: {estado_texto}.\n\n'
+                            f'Ante cualquier duda, escriba a contacto@otecuno.cl',
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[obj.alumno.correo],
+                    fail_silently=True,
+                )
+            except:
+                pass
         else:
             super().save_model(request, obj, form, change)
 
