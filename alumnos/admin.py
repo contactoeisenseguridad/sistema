@@ -165,9 +165,9 @@ admin.site.register(Aviso)
 
 @admin.register(Alumno)
 class AlumnoAdmin(admin.ModelAdmin):
-    list_display = ('apellidos', 'nombres', 'rut')
+    list_display = ('apellidos', 'nombres', 'rut', 'estado_rut', 'estado_correo')
     search_fields = ('nombres', 'apellidos', 'rut', 'correo')
-    #list_filter = ('correo_confirmado', 'rut_confirmado')
+    list_filter = ('correo_confirmado', 'rut_confirmado')
     ordering = ('apellidos', 'nombres')
     inlines = [InscripcionInline, PagoInline]
     
