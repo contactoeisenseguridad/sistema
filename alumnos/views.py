@@ -187,74 +187,105 @@ def carga_masiva_alumnos(request):
 def portal_asistencia(request):
     try:
         perfil = request.user.perfilusuario
-    except:
+    except Exception:
         return render(request, 'error_acceso.html', {'error': 'Usuario sin Perfil configurado.'})
 
     modulos = Modulo.objects.all()
-    context = {'modulos': modulos, 'perfil': perfil, 'hoy': timezone.now().date()}
+    # Contexto base
+    context = {
+        'modulos': modulos, 
+        'perfil': perfil, 
+        'hoy': timezone.now().date()
+    }
 
     if request.method == "POST":
-        # 👇 Nueva validación de PIN
+        # 1. Validación de PIN (Seguridad de acceso)
         pin_ingresado = request.POST.get('pin_seguridad')
-        
         if pin_ingresado != perfil.pin:
             messages.error(request, "PIN de seguridad incorrecto. Verifique sus credenciales.")
             return render(request, 'portal_asistencia.html', context)
-            
-        # ... (si el PIN es correcto, sigue con la carga de alumnos o guardado) ...
+
+        # 2. Rescate de datos del formulario
         modulo_id = request.POST.get('modulo')
-        grupo_input = request.POST.get('grupo', '').strip().upper() # SIEMPRE MAYÚSCULAS
+        grupo_input = request.POST.get('grupo', '').strip().upper()
         
         if not modulo_id or not grupo_input:
-            messages.warning(request, "Complete el módulo y el grupo.")
+            messages.warning(request, "Debe seleccionar un módulo e ingresar un grupo.")
             return render(request, 'portal_asistencia.html', context)
 
         modulo_obj = get_object_or_404(Modulo, id=modulo_id)
+        
+        # 3. Validar si existe sesión para hoy
         sesion = SesionClase.objects.filter(
-            grupo=grupo_input, modulo=modulo_obj, fecha=timezone.now().date()
+            grupo=grupo_input, 
+            modulo=modulo_obj, 
+            fecha=timezone.now().date()
         ).first()
 
         if not sesion:
             messages.error(request, f"No hay clase programada hoy para {grupo_input} en {modulo_obj.nombre}.")
             return render(request, 'portal_asistencia.html', context)
 
-        # SI EL RELATOR ENVÍA LA ASISTENCIA
+        # --- CASO A: GUARDAR ASISTENCIA (Solo Relatores) ---
         if 'btn_guardar' in request.POST:
             if perfil.rol != 'RELATOR':
-                messages.error(request, "Solo los Relatores pueden grabar asistencia.")
+                messages.error(request, "Acceso denegado: Solo los Relatores pueden registrar asistencia.")
                 return redirect('portal_asistencia')
 
             alumnos_inscritos = Alumno.objects.filter(inscripciones__grupo=grupo_input).distinct()
+            correos_enviados = 0
             
             for alumno in alumnos_inscritos:
-                # radio button: asistencia_{{ alumno.id }}
                 estado = request.POST.get(f'asistencia_{alumno.id}')
                 es_presente = (estado == 'presente')
 
+                # 🔍 LÓGICA CLAVE: Verificar estado anterior para evitar correos duplicados
+                asistencia_previa = Asistencia.objects.filter(alumno=alumno, sesion=sesion).first()
+                
+                # Determinamos si hay que notificar:
+                # Si no existía registro previo O si el estado de presencia cambió
+                debe_notificar = False
+                if not asistencia_previa:
+                    debe_notificar = True
+                elif asistencia_previa.presente != es_presente:
+                    debe_notificar = True
+
+                # Guardamos o actualizamos en BD
                 Asistencia.objects.update_or_create(
-                    alumno=alumno, sesion=sesion,
+                    alumno=alumno, 
+                    sesion=sesion,
                     defaults={'presente': es_presente}
                 )
 
-                # Envío de correo automático
-                asunto = f"Registro Asistencia - {modulo_obj.nombre}"
-                msg = f"Estimado(a) {alumno.nombres}:\n\nSu asistencia hoy ({sesion.fecha}) fue registrada como: {'PRESENTE' if es_presente else 'AUSENTE'}.\n\nDudas a contacto@otecuno.cl"
-                send_mail(asunto, msg, settings.DEFAULT_FROM_EMAIL, [alumno.correo], fail_silently=True)
+                # Envío de correo solo si hubo un cambio real
+                if debe_notificar:
+                    asunto = f"Registro Asistencia - {modulo_obj.nombre}"
+                    estado_txt = "PRESENTE" if es_presente else "AUSENTE"
+                    msg = (f"Estimado(a) {alumno.nombres} {alumno.apellidos}:\n\n"
+                           f"Le informamos que su asistencia para hoy {sesion.fecha} "
+                           f"en el módulo {modulo_obj.nombre} ha sido registrada como: {estado_txt}.\n\n"
+                           f"Si existe algún error, contacte a su relator o escriba a contacto@otecuno.cl")
+                    
+                    send_mail(asunto, msg, settings.DEFAULT_FROM_EMAIL, [alumno.correo], fail_silently=True)
+                    correos_enviados += 1
 
-            messages.success(request, f"Asistencia de {grupo_input} guardada. Correos enviados.")
-            return render(request, 'portal_asistencia.html', context)
+            messages.success(request, f"Asistencia de {grupo_input} actualizada. Se enviaron {correos_enviados} notificaciones de cambios.")
+            # Al terminar de guardar, redirigimos o refrescamos la vista para mostrar los checks guardados
+            return redirect(f'/asistencia/?grupo={grupo_input}&modulo={modulo_id}')
 
-        # VISTA DE LISTADO (Para Relator o Fiscalizador)
+        # --- CASO B: CARGAR LISTADO (Relator o Fiscalizador) ---
         alumnos = Alumno.objects.filter(inscripciones__grupo=grupo_input).distinct().order_by('apellidos')
+        
+        # Mapeamos la asistencia actual para que el HTML marque los Radio Buttons correspondientes
         asistencias_actuales = Asistencia.objects.filter(sesion=sesion)
-        mapa = {a.alumno_id: a.presente for a in asistencias_actuales}
+        mapa_asistencia = {a.alumno_id: a.presente for a in asistencias_actuales}
 
         context.update({
             'alumnos': alumnos,
             'grupo_seleccionado': grupo_input,
             'modulo_seleccionado': modulo_obj,
             'sesion': sesion,
-            'mapa_asistencia': mapa,
+            'mapa_asistencia': mapa_asistencia,
             'es_fiscalizador': (perfil.rol == 'FISCALIZADOR')
         })
 
