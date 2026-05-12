@@ -195,6 +195,7 @@ class PerfilUsuario(models.Model):
     ]
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     rol = models.CharField(max_length=20, choices=ROLES)
+    rut = models.CharField(max_length=12, unique=True, null=True, blank=True)
     intentos_fallidos = models.IntegerField(default=0)
     bloqueado = models.BooleanField(default=False)
 
