@@ -7,3 +7,4 @@ python-decouple
 whitenoise
 django-anymail[resend]
 requests==2.31.0
+openpyxl==3.1.2
