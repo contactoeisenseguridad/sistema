@@ -1,5 +1,7 @@
 from django.db import models
 from django.utils import timezone
+from django.contrib.auth.models import User
+import random
 
 
 class Alumno(models.Model):
@@ -30,8 +32,6 @@ class Alumno(models.Model):
         ordering = ['apellidos', 'nombres']
 
     def save(self, *args, **kwargs):
-        import random
-
         if self.nombres:
             self.nombres = self.nombres.upper()
         if self.apellidos:
@@ -150,7 +150,6 @@ class Cuota(models.Model):
 
     class Meta:
         ordering = ['fecha_vencimiento']
-        # 👇 AQUÍ ESTÁ EL PERMISO NUEVO DE SEGURIDAD
         permissions = [
             ("can_edit_locked_cuotas", "Puede editar cuotas ya ingresadas"),
         ]
@@ -162,7 +161,6 @@ class Cuota(models.Model):
 
         if self.estado == 'PENDIENTE':
             self.fecha_pago = None
-            # 👇 Ajuste de indentación aquí
             if self.fecha_vencimiento < timezone.localdate():
                 self.estado = 'VENCIDA'
 
@@ -184,3 +182,88 @@ class GastoOperacional(models.Model):
 
     def __str__(self):
         return f"{self.concepto} - ${self.monto}"
+
+
+# ==========================================
+# 🛡️ NUEVOS MODELOS: SEGURIDAD Y ASISTENCIA
+# ==========================================
+
+class PerfilUsuario(models.Model):
+    ROLES = [
+        ('RELATOR', 'Relator Autorizado'),
+        ('FISCALIZADOR', 'Fiscalizador / Auditor'),
+    ]
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    rol = models.CharField(max_length=20, choices=ROLES)
+    intentos_fallidos = models.IntegerField(default=0)
+    bloqueado = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"{self.user.username} - {self.get_rol_display()}"
+
+
+class Modulo(models.Model):
+    nombre = models.CharField(max_length=200, help_text="Ej: Legislación Aplicada")
+    
+    def __str__(self):
+        return self.nombre
+
+
+class SesionClase(models.Model):
+    MODALIDAD_CHOICES = [
+        ('ONLINE', 'Aula Virtual (Online)'),
+        ('PRESENCIAL', 'Terreno (Presencial)'),
+    ]
+    
+    grupo = models.CharField(max_length=50, help_text="Debe coincidir con el grupo de la inscripción") 
+    modulo = models.ForeignKey(Modulo, on_delete=models.CASCADE)
+    # 👇 NUEVO: Ahora cada clase tiene un relator asignado
+    relator = models.ForeignKey(
+        User, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True,
+        limit_choices_to={'perfilusuario__rol': 'RELATOR'},
+        related_name='clases_dictadas'
+    )
+    fecha = models.DateField(default=timezone.localdate)
+    bloque_horario = models.CharField(max_length=100, help_text="Ej: 09:00 a 11:00") 
+    horas_bloque = models.IntegerField(default=2) 
+    modalidad = models.CharField(max_length=20, choices=MODALIDAD_CHOICES, default='ONLINE')
+
+    class Meta:
+        verbose_name = "Sesión de Clase"
+        verbose_name_plural = "Programación de Clases (Calendario)"
+        ordering = ['fecha', 'bloque_horario']
+
+    def __str__(self):
+        relator_name = self.relator.get_full_name() if self.relator else "Sin Relator"
+        return f"{self.fecha} | {self.bloque_horario} | {self.modulo.nombre} | {relator_name}"
+
+
+class Asistencia(models.Model):
+    alumno = models.ForeignKey(Alumno, on_delete=models.CASCADE)
+    sesion = models.ForeignKey(SesionClase, on_delete=models.CASCADE)
+    presente = models.BooleanField(default=False) 
+
+    class Meta:
+        unique_together = ('alumno', 'sesion') 
+        
+    def __str__(self):
+        estado = "✅ Presente" if self.presente else "❌ Ausente"
+        return f"{self.alumno} - {self.sesion.modulo} ({estado})"
+
+
+class PlanillaSPD(models.Model):
+    """Modelo para subir y procesar el Excel oficial de la SPD"""
+    grupo = models.CharField(max_length=50, help_text="Ej: FGS352026. Se vinculará a este grupo.")
+    archivo_excel = models.FileField(upload_to='planillas_spd/', help_text="Sube el archivo .xlsx de la SPD aquí")
+    fecha_subida = models.DateTimeField(auto_now_add=True)
+    procesado = models.BooleanField(default=False, help_text="Indica si el sistema ya leyó y creó las clases de este Excel")
+
+    class Meta:
+        verbose_name = "Planilla SPD"
+        verbose_name_plural = "Planillas SPD (Carga de Clases)"
+
+    def __str__(self):
+        return f"Planilla Grupo {self.grupo} - Subida: {self.fecha_subida.strftime('%d/%m/%Y')}"
