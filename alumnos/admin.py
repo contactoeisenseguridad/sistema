@@ -284,41 +284,42 @@ class PlanillaSPDAdmin(admin.ModelAdmin):
         for planilla in queryset:
             try:
                 wb = openpyxl.load_workbook(planilla.archivo_excel.path, data_only=True)
-                pestaña_objetivo = "CONTENIDOS DEL CURSO"
+                pestaña = "CONTENIDOS DEL CURSO"
                 
-                if pestaña_objetivo in wb.sheetnames:
-                    ws = wb[pestaña_objetivo]
+                if pestaña in wb.sheetnames:
+                    ws = wb[pestaña]
+                    # Limpiamos sesiones previas del grupo antes de cargar las nuevas
                     SesionClase.objects.filter(grupo=planilla.grupo).delete()
                     
-                    # Escaneamos más filas por si la tabla empieza muy abajo
-                    for r in range(1, 200):
-                        # Revisamos las primeras 6 columnas de la fila
-                        fila_valores = [ws.cell(row=r, column=c).value for c in range(1, 7)]
-                        
-                        # Buscamos cuál columna tiene la fecha y cuál el módulo
-                        # La fecha suele ser el primer valor no nulo
-                        fecha_val = next((v for v in fila_valores if v and (hasattr(v, 'year') or '/' in str(v) or '-' in str(v))), None)
-                        
-                        if fecha_val:
-                            # Si encontramos una fecha, buscamos el texto del módulo (suele estar 2 celdas a la derecha)
-                            # Intentamos agarrar el valor de la columna 3 (C) o el siguiente texto largo
-                            modulo_val = ws.cell(row=r, column=3).value or ws.cell(row=r, column=4).value
+                    # RANGO FIJO: Fila 11 hasta la 33
+                    for r in range(11, 34): 
+                        # B=2 (Fecha), C=3 (Horario), D=4 (Módulo), E=5 (Relator)
+                        fecha_val = ws.cell(row=r, column=2).value
+                        horario_val = ws.cell(row=r, column=3).value
+                        modulo_val = ws.cell(row=r, column=4).value
+                        relator_val = ws.cell(row=r, column=5).value
+
+                        # Si la celda de fecha está vacía, saltamos esa fila del rango
+                        if not fecha_val:
+                            continue
+
+                        try:
+                            # 1. Buscamos o creamos el Módulo (Columna D)
+                            mod_obj, _ = Modulo.objects.get_or_create(
+                                nombre=str(modulo_val).strip()
+                            )
                             
-                            if modulo_val and "FECHA" not in str(fecha_val).upper():
-                                m_nombre = str(modulo_val).strip()
-                                mod_obj, _ = Modulo.objects.get_or_create(nombre=m_nombre)
-                                
-                                # Intentamos sacar el horario de la columna 2 (B)
-                                horario_val = ws.cell(row=r, column=2).value or "Sin Horario"
-                                
-                                SesionClase.objects.create(
-                                    grupo=planilla.grupo,
-                                    fecha=fecha_val,
-                                    bloque_horario=str(horario_val).strip(),
-                                    modulo=mod_obj,
-                                    modalidad='ONLINE' # Por defecto para SPD
-                                )
-                                exitos += 1
+                            # 2. Creamos la Sesión de Clase
+                            SesionClase.objects.create(
+                                grupo=planilla.grupo,
+                                fecha=fecha_val,
+                                bloque_horario=str(horario_val).strip() if horario_val else "Sin Horario",
+                                modulo=mod_obj,
+                                modalidad='ONLINE' # Formato estándar SPD
+                            )
+                            exitos += 1
+                        except Exception:
+                            continue
 
                 planilla.procesado = (exitos > 0)
                 planilla.save()
@@ -327,9 +328,9 @@ class PlanillaSPDAdmin(admin.ModelAdmin):
                 messages.error(request, f"Error en {planilla.grupo}: {str(e)}")
 
         if exitos > 0:
-            messages.success(request, f"✅ ¡LOGRADO! Se crearon {exitos} sesiones desde '{pestaña_objetivo}'.")
+            messages.success(request, f"✅ ¡TRABAJO TERMINADO! Se cargaron {exitos} sesiones del rango B11:F33.")
         else:
-            messages.warning(request, f"Aún no detecto los datos. Por favor, asegúrate de que el archivo NO sea un CSV, debe ser .XLSX original.")
+            messages.warning(request, "No se encontraron datos válidos en el rango B11:F33 de la pestaña 'CONTENIDOS DEL CURSO'.")
 
     procesar_excel_spd_action.short_description = "📥 Leer Excel y Generar Calendario de Clases"
 
