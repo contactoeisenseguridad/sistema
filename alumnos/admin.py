@@ -343,6 +343,81 @@ def procesar_excel_spd(self, request, queryset):
     
     procesar_excel_spd.short_description = "📥 Leer Excel y Generar Calendario de Clases"
 
+@admin.register(PlanillaSPD)
+class PlanillaSPDAdmin(admin.ModelAdmin):
+    list_display = ('grupo', 'fecha_subida', 'procesado')
+    actions = ['procesar_excel_spd_action']
+
+    def procesar_excel_spd_action(self, request, queryset):
+        exitos = 0
+        for planilla in queryset:
+            try:
+                # Abrimos el Excel usando la librería openpyxl
+                wb = openpyxl.load_workbook(planilla.archivo_excel.path, data_only=True)
+                
+                # 1. Asegurar que existan los Módulos (Pestaña CONTENIDOS DEL CURSO)
+                if "CONTENIDOS DEL CURSO" in wb.sheetnames:
+                    ws_mod = wb["CONTENIDOS DEL CURSO"]
+                    for row in ws_mod.iter_rows(min_row=2, values_only=True):
+                        if row[0]: 
+                            Modulo.objects.get_or_create(nombre=str(row[0]).strip())
+
+                # 2. Leer Clases (Pestaña Hoja1 - Formato oficial SPD)
+                if "Hoja1" in wb.sheetnames:
+                    ws = wb["Hoja1"]
+                    start_row = 1
+                    col_fecha, col_hora, col_mod, col_tipo = None, None, None, None
+
+                    # BUSCADOR DE CABECERAS: Rastrea las primeras 20 filas para hallar dónde empieza la tabla
+                    for r in range(1, 20):
+                        row_vals = [str(ws.cell(row=r, column=c).value).upper() if ws.cell(row=r, column=c).value else "" for c in range(1, 10)]
+                        if "FECHA" in row_vals or "MODULO" in row_vals:
+                            start_row = r + 1
+                            for idx, val in enumerate(row_vals):
+                                if "FECHA" in val: col_fecha = idx + 1
+                                if "HORA" in val or "HORARIO" in val: col_hora = idx + 1
+                                if "MODULO" in val: col_mod = idx + 1
+                                if "MODALIDAD" in val: col_tipo = idx + 1
+                            break
+
+                    if col_fecha and col_mod:
+                        # Limpiamos sesiones previas de este grupo para evitar duplicados al re-procesar
+                        SesionClase.objects.filter(grupo=planilla.grupo).delete()
+                        
+                        for r in range(start_row, ws.max_row + 1):
+                            f_val = ws.cell(row=r, column=col_fecha).value
+                            if not f_val: continue # Si no hay fecha, saltamos la fila
+                            
+                            m_nombre = str(ws.cell(row=r, column=col_mod).value).strip()
+                            h_val = str(ws.cell(row=r, column=col_hora).value).strip() if col_hora else "Sin Horario"
+                            t_val = str(ws.cell(row=r, column=col_tipo).value).upper() if col_tipo else ""
+
+                            # Vincular con el modelo Modulo
+                            mod_obj, _ = Modulo.objects.get_or_create(nombre=m_nombre)
+                            
+                            # Crear la sesión en el calendario
+                            SesionClase.objects.create(
+                                grupo=planilla.grupo,
+                                fecha=f_val,
+                                bloque_horario=h_val,
+                                modulo=mod_obj,
+                                modalidad='PRESENCIAL' if 'PRESENCIAL' in t_val or 'TERRENO' in t_val else 'ONLINE'
+                            )
+                            exitos += 1
+
+                planilla.procesado = True
+                planilla.save()
+                
+            except Exception as e:
+                messages.error(request, f"Error procesando el grupo {planilla.grupo}: {str(e)}")
+
+        if exitos > 0:
+            messages.success(request, f"✅ ¡Listo! Se crearon {exitos} sesiones de clase para el grupo {planilla.grupo}.")
+        else:
+            messages.warning(request, "Se leyó el archivo pero no se detectaron filas con el formato de la SPD. Revisa las pestañas.")
+
+    procesar_excel_spd_action.short_description = "📥 Leer Excel y Generar Calendario de Clases"
+
 
 # ==========================================
 # 5. VISTA DEL RELATOR (ASISTENCIA)
