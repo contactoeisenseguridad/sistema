@@ -264,9 +264,9 @@ class AsistenciaAdmin(admin.ModelAdmin):
     search_fields = ('alumno__rut', 'alumno__apellidos', 'sesion__modulo__nombre')
 
     def get_readonly_fields(self, request, obj=None):
-        # 👇 CAMBIO: Si es Superusuario, tiene acceso total SIEMPRE
+        # 👇 SI ES SUPERUSUARIO, TIENE ACCESO TOTAL SIEMPRE
         if request.user.is_superuser:
-        return []
+            return []  # Este espacio es el que faltaba
     
         # Si no es superusuario, verificamos si tiene perfil de fiscalizador
         try:
@@ -276,7 +276,6 @@ class AsistenciaAdmin(admin.ModelAdmin):
             pass
         
         return super().get_readonly_fields(request, obj)
-
 
 @admin.register(PlanillaSPD)
 class PlanillaSPDAdmin(admin.ModelAdmin):
