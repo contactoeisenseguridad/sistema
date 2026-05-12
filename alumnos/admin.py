@@ -255,7 +255,6 @@ class SesionClaseAdmin(admin.ModelAdmin):
 
 
 @admin.register(Asistencia)
-@admin.register(Asistencia)
 class AsistenciaAdmin(admin.ModelAdmin):
     # Quitamos 'fecha_modificacion' de la lista
     list_display = ('alumno', 'sesion', 'presente') 
