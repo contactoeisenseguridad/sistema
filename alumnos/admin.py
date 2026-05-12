@@ -165,7 +165,7 @@ admin.site.register(Aviso)
 
 @admin.register(Alumno)
 class AlumnoAdmin(admin.ModelAdmin):
-    list_display = ('apellidos', 'nombres', 'rut', 'estado_rut', 'estado_correo', 'estado_rut_icon', 'grupo_actual', 'ver_ficha')
+    list_display = ('apellidos', 'nombres', 'rut')
     search_fields = ('nombres', 'apellidos', 'rut', 'correo')
     #list_filter = ('correo_confirmado', 'rut_confirmado')
     ordering = ('apellidos', 'nombres')
