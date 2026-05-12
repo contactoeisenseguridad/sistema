@@ -241,24 +241,24 @@ class ModuloAdmin(admin.ModelAdmin):
 @admin.register(SesionClase)
 class SesionClaseAdmin(admin.ModelAdmin):
     date_hierarchy = 'fecha' 
-    # Quitamos 'ver_relator' temporalmente de list_display para asegurar que cargue
-    list_display = ('fecha', 'bloque_horario', 'modulo', 'relator', 'grupo', 'modalidad')
-    list_filter = ('modalidad', 'relator', 'grupo')
-    search_fields = ('grupo', 'modulo__nombre', 'relator__username')
-    ordering = ('-fecha', 'bloque_horario')
+    # Definimos qué columnas ver (incluimos la nueva función 'color_modalidad')
+    list_display = ('fecha', 'bloque_horario', 'modulo', 'color_modalidad', 'grupo')
+    
+    # Filtro lateral para que pinches "ONLINE" y veas solo esas, o "PRESENCIAL"
+    list_filter = ('modalidad', 'grupo', 'modulo')
+    
+    search_fields = ('modulo__nombre', 'grupo__nombre')
+    ordering = ('fecha',)
 
-    # Hacemos que el relator sea editable directamente desde la lista para que sea más rápido
-    list_editable = ('relator',)
-
-    def ver_horario(self, obj):
-        return format_html('<b>{}</b>', obj.bloque_horario)
-    ver_horario.short_description = "Horario"
-
-    def ver_relator(self, obj):
-        if obj.relator:
-            return f"{obj.relator.first_name} {obj.relator.last_name}"
-        return format_html('<span style="color: red;">⚠️ Sin Asignar</span>')
-    ver_relator.short_description = "Relator"
+    # Esta función pone la etiqueta de color para diferenciar Online de Presencial
+    def color_modalidad(self, obj):
+        if obj.modalidad == 'ONLINE':
+            return format_html('<span style="color: #2e7d32; font-weight: bold;">🌐 ONLINE</span>')
+        elif obj.modalidad == 'PRESENCIAL':
+            return format_html('<span style="color: #d32f2f; font-weight: bold;">📍 PRESENCIAL</span>')
+        return obj.modalidad
+    
+    color_modalidad.short_description = 'Tipo de Clase'
 
 
 @admin.register(Asistencia)
