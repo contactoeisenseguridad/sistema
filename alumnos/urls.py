@@ -18,6 +18,6 @@ urlpatterns = [
 
     path('exportar-excel/formulario/', formulario_exportar_excel, name='formulario_exportar_excel'),
     path('exportar-excel/', exportar_excel_grupo, name='exportar_excel_grupo'),
-
+    path('asistencia/', views.portal_asistencia, name='portal_asistencia'),
     path('carga-masiva/', carga_masiva_alumnos, name='carga_masiva_alumnos'),
 ]

@@ -15,6 +15,11 @@ from django.shortcuts import render
 from django.utils import timezone
 from django.utils.html import format_html
 from django.conf import settings
+from django.shortcuts import render, get_object_or_create
+from django.contrib import messages
+from django.core.mail import send_mail
+from django.utils import timezone
+from .models import Alumno, SesionClase, Asistencia, Modulo, Inscripcion
 
 from .models import (
     Alumno, Inscripcion, Auditoria, Aviso, Pago, Cuota, GastoOperacional,
@@ -251,19 +256,28 @@ class SesionClaseAdmin(admin.ModelAdmin):
 
 @admin.register(Asistencia)
 class AsistenciaAdmin(admin.ModelAdmin):
-    list_display = ('alumno', 'sesion', 'presente')
-    list_filter = ('presente', 'sesion__grupo', 'sesion__fecha')
-    search_fields = ('alumno__rut', 'alumno__apellidos', 'sesion__modulo__nombre')
-
-    def get_readonly_fields(self, request, obj=None):
-        if request.user.is_superuser:
-            return []
-        try:
-            if request.user.perfilusuario.rol == 'FISCALIZADOR':
-                return [f.name for f in self.model._meta.fields]
-        except:
-            pass
-        return super().get_readonly_fields(request, obj)
+    list_display = ('alumno', 'sesion', 'presente', 'fecha_modificacion')
+    list_filter = ('presente', 'sesion__grupo')
+    
+    def save_model(self, request, obj, form, change):
+        # Si se está modificando un registro existente
+        if change:
+            super().save_model(request, obj, form, change)
+            # Notificar al alumno de la corrección
+            estado_texto = "PRESENTE" if obj.presente else "AUSENTE"
+            send_mail(
+                subject='Actualización de Asistencia - OTEC UNO',
+                message=f'Estimado(a) {obj.alumno.nombres}:\n\n'
+                        f'Se ha realizado una actualización manual en su registro de asistencia '
+                        f'del día {obj.sesion.fecha} ({obj.sesion.modulo.nombre}).\n'
+                        f'Su nuevo estado es: {estado_texto}.\n\n'
+                        f'Ante cualquier duda, escriba a contacto@otecuno.cl',
+                from_email='contacto@otecuno.cl',
+                recipient_list=[obj.alumno.correo],
+                fail_silently=True,
+            )
+        else:
+            super().save_model(request, obj, form, change)
 
 
 @admin.register(PlanillaSPD)
@@ -370,6 +384,79 @@ def vista_pasar_asistencia(request):
         return render(request, 'exito_asistencia.html')
 
     return render(request, 'login_relator.html')
+
+# ==========================================
+# 6. PORTAL DE ASISTENCIA
+# ==========================================
+
+def portal_asistencia(request):
+    modulos = Modulo.objects.all()
+    
+    if request.method == "POST":
+        modulo_id = request.POST.get('modulo')
+        # Convertimos grupo a MAYÚSCULAS automáticamente
+        grupo_input = request.POST.get('grupo').strip().upper()
+        
+        modulo = get_object_or_create(Modulo, id=modulo_id)
+        
+        # 1. Buscar la sesión de hoy para ese grupo y módulo
+        hoy = timezone.now().date()
+        sesion = SesionClase.objects.filter(
+            grupo=grupo_input, 
+            modulo=modulo, 
+            fecha=hoy
+        ).first()
+
+        if not sesion:
+            messages.error(request, f"No existe una clase programada para hoy ({hoy}) en el grupo {grupo_input} y módulo {modulo.nombre}.")
+            return render(request, 'portal_asistencia.html', {'modulos': modulos})
+
+        # 2. Si el relator ya envió la lista de alumnos
+        if 'guardar_asistencia' in request.POST:
+            alumnos_inscritos = Alumno.objects.filter(inscripcion__grupo=grupo_input)
+            
+            for alumno in alumnos_inscritos:
+                # El checkbox solo envía valor si está marcado (Presente)
+                estado_check = request.POST.get(f'asistencia_{alumno.id}')
+                es_presente = True if estado_check == 'presente' else False
+                
+                # Guardar o actualizar asistencia
+                asistencia_obj, created = Asistencia.objects.update_or_create(
+                    alumno=alumno,
+                    sesion=sesion,
+                    defaults={'presente': es_presente}
+                )
+
+                # 3. Enviar Correo Electrónico
+                estado_texto = "PRESENTE" if es_presente else "AUSENTE"
+                try:
+                    send_mail(
+                        subject=f'Registro de Asistencia - {modulo.nombre}',
+                        message=f'Estimado(a) {alumno.nombres} {alumno.apellidos}:\n\n'
+                                f'Le informamos que su asistencia para el día de hoy {hoy} '
+                                f'en el módulo "{modulo.nombre}" ha sido registrada como: {estado_texto}.\n\n'
+                                f'Cualquier discrepancia debe ser indicada al correo: contacto@otecuno.cl\n\n'
+                                f'Atentamente,\nOTEC UNO.',
+                        from_email='contacto@otecuno.cl',
+                        recipient_list=[alumno.correo],
+                        fail_silently=True,
+                    )
+                except:
+                    pass
+            
+            messages.success(request, f"Asistencia del grupo {grupo_input} guardada y correos enviados.")
+            return render(request, 'exito.html')
+
+        # 4. Cargar listado de alumnos para ese grupo
+        alumnos = Alumno.objects.filter(inscripcion__grupo=grupo_input).order_by('apellidos')
+        return render(request, 'portal_asistencia.html', {
+            'alumnos': alumnos, 
+            'grupo': grupo_input, 
+            'modulo': modulo,
+            'sesion': sesion
+        })
+
+    return render(request, 'portal_asistencia.html', {'modulos': modulos})
 
 # ==========================================
 # CONFIGURACIÓN VISUAL DEL PANEL
