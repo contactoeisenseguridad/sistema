@@ -238,27 +238,40 @@ class ModuloAdmin(admin.ModelAdmin):
     search_fields = ('nombre',)
 
 
+from django.utils.html import format_html
+
 @admin.register(SesionClase)
 class SesionClaseAdmin(admin.ModelAdmin):
-    date_hierarchy = 'fecha' 
-    # Definimos qué columnas ver (incluimos la nueva función 'color_modalidad')
-    list_display = ('fecha', 'bloque_horario', 'modulo', 'color_modalidad', 'grupo')
+    # Esto habilita la barra de fechas arriba
+    date_hierarchy = 'fecha'
     
-    # Filtro lateral para que pinches "ONLINE" y veas solo esas, o "PRESENCIAL"
+    # Mostramos lo que te importa: Fecha, Hora, Qué asignatura es y cómo se dicta
+    list_display = ('fecha', 'bloque_horario', 'modulo', 'tipo_modalidad', 'grupo')
+    
+    # Filtros a la derecha para discriminar rápido
     list_filter = ('modalidad', 'grupo', 'modulo')
     
+    # Buscador
     search_fields = ('modulo__nombre', 'grupo__nombre')
-    ordering = ('fecha',)
-
-    # Esta función pone la etiqueta de color para diferenciar Online de Presencial
-    def color_modalidad(self, obj):
-        if obj.modalidad == 'ONLINE':
-            return format_html('<span style="color: #2e7d32; font-weight: bold;">🌐 ONLINE</span>')
-        elif obj.modalidad == 'PRESENCIAL':
-            return format_html('<span style="color: #d32f2f; font-weight: bold;">📍 PRESENCIAL</span>')
-        return obj.modalidad
     
-    color_modalidad.short_description = 'Tipo de Clase'
+    # Ordenar por fecha de la más antigua a la más nueva
+    ordering = ('fecha', 'bloque_horario')
+
+    # Función para ver el tipo de clase con colores y que no falle nunca
+    def tipo_modalidad(self, obj):
+        if not obj.modalidad:
+            return "No definida"
+            
+        color = "#2e7d32" if "ONLINE" in obj.modalidad.upper() else "#d32f2f"
+        texto = "🌐 ONLINE" if "ONLINE" in obj.modalidad.upper() else "📍 PRESENCIAL"
+        
+        return format_html(
+            '<span style="color: {}; font-weight: bold;">{}</span>',
+            color,
+            texto
+        )
+    
+    tipo_modalidad.short_description = 'Modalidad'
 
 
 @admin.register(Asistencia)
