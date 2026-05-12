@@ -1,7 +1,8 @@
 import os
 import random
 import string
-import openpyxl # 👈 LIBRERÍA NUEVA PARA LEER EXCEL
+import openpyxl  # 👈 LIBRERÍA NUEVA PARA LEER EXCEL
+import requests
 from datetime import timedelta
 
 from django.contrib import admin, messages
@@ -239,7 +240,6 @@ class ModuloAdmin(admin.ModelAdmin):
 
 @admin.register(SesionClase)
 class SesionClaseAdmin(admin.ModelAdmin):
-    # 👇 ESTA ES LA VISTA DE PROGRAMACIÓN (Calendario visual)
     date_hierarchy = 'fecha' 
     list_display = ('fecha', 'ver_horario', 'modulo', 'ver_relator', 'grupo', 'modalidad')
     list_filter = ('modalidad', 'relator', 'grupo')
@@ -264,84 +264,15 @@ class AsistenciaAdmin(admin.ModelAdmin):
     search_fields = ('alumno__rut', 'alumno__apellidos', 'sesion__modulo__nombre')
 
     def get_readonly_fields(self, request, obj=None):
-        # 👇 SI ES SUPERUSUARIO, TIENE ACCESO TOTAL SIEMPRE
         if request.user.is_superuser:
-            return []  # Este espacio es el que faltaba
-    
-        # Si no es superusuario, verificamos si tiene perfil de fiscalizador
+            return []
         try:
             if request.user.perfilusuario.rol == 'FISCALIZADOR':
                 return [f.name for f in self.model._meta.fields]
         except:
             pass
-        
         return super().get_readonly_fields(request, obj)
 
-def procesar_excel_spd(self, request, queryset):
-        exitos = 0
-        for planilla in queryset:
-            try:
-                wb = openpyxl.load_workbook(planilla.archivo_excel.path, data_only=True)
-                
-                # 1. Asegurar Módulos (Pestaña CONTENIDOS DEL CURSO)
-                if "CONTENIDOS DEL CURSO" in wb.sheetnames:
-                    ws_mod = wb["CONTENIDOS DEL CURSO"]
-                    for row in ws_mod.iter_rows(min_row=2, values_only=True):
-                        if row[0]: Modulo.objects.get_or_create(nombre=str(row[0]).strip())
-
-                # 2. Leer Clases (Pestaña Hoja1)
-                if "Hoja1" in wb.sheetnames:
-                    ws = wb["Hoja1"]
-                    start_row = 1
-                    col_fecha, col_hora, col_mod, col_tipo = None, None, None, None
-
-                    # BUSCADOR DE CABECERAS (Detecta dónde empieza la tabla de la SPD)
-                    for r in range(1, 20): # Busca en las primeras 20 filas
-                        row_vals = [str(ws.cell(row=r, column=c).value).upper() if ws.cell(row=r, column=c).value else "" for c in range(1, 10)]
-                        if "FECHA" in row_vals or "MODULO" in row_vals:
-                            start_row = r + 1
-                            for idx, val in enumerate(row_vals):
-                                if "FECHA" in val: col_fecha = idx + 1
-                                if "HORA" in val or "HORARIO" in val: col_hora = idx + 1
-                                if "MODULO" in val: col_mod = idx + 1
-                                if "MODALIDAD" in val: col_tipo = idx + 1
-                            break
-
-                    if col_fecha and col_mod:
-                        # Borrar sesiones previas de este grupo para evitar duplicados si re-procesas
-                        SesionClase.objects.filter(grupo=planilla.grupo).delete()
-                        
-                        for r in range(start_row, ws.max_row + 1):
-                            f_val = ws.cell(row=r, column=col_fecha).value
-                            if not f_val: continue # Si no hay fecha, saltar fila
-                            
-                            m_nombre = str(ws.cell(row=r, column=col_mod).value).strip()
-                            h_val = str(ws.cell(row=r, column=col_hora).value).strip()
-                            t_val = str(ws.cell(row=r, column=col_tipo).value).upper() if col_tipo else ""
-
-                            mod_obj, _ = Modulo.objects.get_or_create(nombre=m_nombre)
-                            
-                            SesionClase.objects.create(
-                                grupo=planilla.grupo,
-                                fecha=f_val,
-                                bloque_horario=h_val,
-                                modulo=mod_obj,
-                                modalidad='PRESENCIAL' if 'PRESENCIAL' in t_val or 'TERRENO' in t_val else 'ONLINE'
-                            )
-                            exitos += 1
-
-                planilla.procesado = True
-                planilla.save()
-                
-            except Exception as e:
-                messages.error(request, f"Error en {planilla.grupo}: {str(e)}")
-
-        if exitos > 0:
-            messages.success(request, f"¡Magia! Se crearon {exitos} clases para el grupo {planilla.grupo}.")
-        else:
-            messages.warning(request, "El archivo se leyó pero no se encontraron clases. Revisa que la pestaña se llame 'Hoja1'.")
-    
-    procesar_excel_spd.short_description = "📥 Leer Excel y Generar Calendario de Clases"
 
 @admin.register(PlanillaSPD)
 class PlanillaSPDAdmin(admin.ModelAdmin):
@@ -352,23 +283,19 @@ class PlanillaSPDAdmin(admin.ModelAdmin):
         exitos = 0
         for planilla in queryset:
             try:
-                # Abrimos el Excel usando la librería openpyxl
                 wb = openpyxl.load_workbook(planilla.archivo_excel.path, data_only=True)
                 
-                # 1. Asegurar que existan los Módulos (Pestaña CONTENIDOS DEL CURSO)
                 if "CONTENIDOS DEL CURSO" in wb.sheetnames:
                     ws_mod = wb["CONTENIDOS DEL CURSO"]
                     for row in ws_mod.iter_rows(min_row=2, values_only=True):
                         if row[0]: 
                             Modulo.objects.get_or_create(nombre=str(row[0]).strip())
 
-                # 2. Leer Clases (Pestaña Hoja1 - Formato oficial SPD)
                 if "Hoja1" in wb.sheetnames:
                     ws = wb["Hoja1"]
                     start_row = 1
                     col_fecha, col_hora, col_mod, col_tipo = None, None, None, None
 
-                    # BUSCADOR DE CABECERAS: Rastrea las primeras 20 filas para hallar dónde empieza la tabla
                     for r in range(1, 20):
                         row_vals = [str(ws.cell(row=r, column=c).value).upper() if ws.cell(row=r, column=c).value else "" for c in range(1, 10)]
                         if "FECHA" in row_vals or "MODULO" in row_vals:
@@ -381,40 +308,28 @@ class PlanillaSPDAdmin(admin.ModelAdmin):
                             break
 
                     if col_fecha and col_mod:
-                        # Limpiamos sesiones previas de este grupo para evitar duplicados al re-procesar
                         SesionClase.objects.filter(grupo=planilla.grupo).delete()
-                        
                         for r in range(start_row, ws.max_row + 1):
                             f_val = ws.cell(row=r, column=col_fecha).value
-                            if not f_val: continue # Si no hay fecha, saltamos la fila
-                            
+                            if not f_val: continue
                             m_nombre = str(ws.cell(row=r, column=col_mod).value).strip()
                             h_val = str(ws.cell(row=r, column=col_hora).value).strip() if col_hora else "Sin Horario"
                             t_val = str(ws.cell(row=r, column=col_tipo).value).upper() if col_tipo else ""
-
-                            # Vincular con el modelo Modulo
                             mod_obj, _ = Modulo.objects.get_or_create(nombre=m_nombre)
-                            
-                            # Crear la sesión en el calendario
                             SesionClase.objects.create(
-                                grupo=planilla.grupo,
-                                fecha=f_val,
-                                bloque_horario=h_val,
-                                modulo=mod_obj,
-                                modalidad='PRESENCIAL' if 'PRESENCIAL' in t_val or 'TERRENO' in t_val else 'ONLINE'
+                                grupo=planilla.grupo, fecha=f_val, bloque_horario=h_val,
+                                modulo=mod_obj, modalidad='PRESENCIAL' if 'PRESENCIAL' in t_val else 'ONLINE'
                             )
                             exitos += 1
-
                 planilla.procesado = True
                 planilla.save()
-                
             except Exception as e:
-                messages.error(request, f"Error procesando el grupo {planilla.grupo}: {str(e)}")
+                messages.error(request, f"Error en {planilla.grupo}: {str(e)}")
 
         if exitos > 0:
-            messages.success(request, f"✅ ¡Listo! Se crearon {exitos} sesiones de clase para el grupo {planilla.grupo}.")
+            messages.success(request, f"¡Éxito! Se crearon {exitos} sesiones para el grupo {planilla.grupo}.")
         else:
-            messages.warning(request, "Se leyó el archivo pero no se detectaron filas con el formato de la SPD. Revisa las pestañas.")
+            messages.warning(request, "Se leyó el archivo pero no se detectaron filas de clase.")
 
     procesar_excel_spd_action.short_description = "📥 Leer Excel y Generar Calendario de Clases"
 
@@ -422,8 +337,6 @@ class PlanillaSPDAdmin(admin.ModelAdmin):
 # ==========================================
 # 5. VISTA DEL RELATOR (ASISTENCIA)
 # ==========================================
-# Nota: Esta función debe ser enlazada en tu archivo urls.py principal
-# Ejemplo: path('portal-relator/', views.vista_pasar_asistencia, name='portal_relator')
 
 def vista_pasar_asistencia(request):
     if 'relator_auth' not in request.session:
@@ -433,8 +346,7 @@ def vista_pasar_asistencia(request):
             try:
                 perfil = PerfilUsuario.objects.get(user__username=user_input, rol='RELATOR')
                 if perfil.bloqueado:
-                    return render(request, 'error_asistencia.html', {'error': 'USUARIO BLOQUEADO. Contacte al Superusuario.'})
-
+                    return render(request, 'error_asistencia.html', {'error': 'USUARIO BLOQUEADO.'})
                 user = authenticate(username=user_input, password=pass_input)
                 if user is not None:
                     perfil.intentos_fallidos = 0
@@ -444,9 +356,9 @@ def vista_pasar_asistencia(request):
                     perfil.intentos_fallidos += 1
                     if perfil.intentos_fallidos >= 2: perfil.bloqueado = True
                     perfil.save()
-                    return render(request, 'login_relator.html', {'error': f'Clave incorrecta. Intento {perfil.intentos_fallidos} de 2.'})
+                    return render(request, 'login_relator.html', {'error': f'Clave incorrecta.'})
             except PerfilUsuario.DoesNotExist:
-                return render(request, 'login_relator.html', {'error': 'Usuario no autorizado como Relator.'})
+                return render(request, 'login_relator.html', {'error': 'Usuario no autorizado.'})
 
     if request.method == "POST" and "seleccionar_grupo" in request.POST:
         grupo_id = request.POST.get('grupo')
@@ -458,25 +370,12 @@ def vista_pasar_asistencia(request):
         grupo_id = request.POST.get('grupo')
         modulo_id = request.POST.get('modulo')
         alumnos_presentes_ids = request.POST.getlist('alumnos_presentes')
-        
-        # OBTENEMOS LA SESIÓN CORRECTA DEL CALENDARIO
         sesion = SesionClase.objects.filter(grupo=grupo_id, modulo_id=modulo_id, fecha=timezone.now().date()).first()
-        
         if not sesion:
-            return render(request, 'error_asistencia.html', {'error': 'No hay clases programadas para este grupo y módulo el día de hoy.'})
-
+            return render(request, 'error_asistencia.html', {'error': 'No hay clases hoy.'})
         for alumno in Alumno.objects.filter(inscripcion__grupo=grupo_id):
             es_presente = str(alumno.id) in alumnos_presentes_ids
             Asistencia.objects.update_or_create(alumno=alumno, sesion=sesion, defaults={'presente': es_presente})
-            
-            if es_presente:
-                email = EmailMessage(
-                    subject=f'Asistencia Registrada - {sesion.modulo.nombre}',
-                    body=f'Estimado {alumno.nombres},\n\nSu asistencia ha sido registrada exitosamente para el módulo "{sesion.modulo.nombre}" el día {sesion.fecha}.\n\nSaludos,\nOTEC UNO',
-                    from_email=settings.DEFAULT_FROM_EMAIL, to=[alumno.correo],
-                )
-                email.send(fail_silently=True)
-
         return render(request, 'exito_asistencia.html')
 
     return render(request, 'login_relator.html')
