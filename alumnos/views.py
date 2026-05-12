@@ -194,6 +194,14 @@ def portal_asistencia(request):
     context = {'modulos': modulos, 'perfil': perfil, 'hoy': timezone.now().date()}
 
     if request.method == "POST":
+        # 👇 Nueva validación de PIN
+        pin_ingresado = request.POST.get('pin_seguridad')
+        
+        if pin_ingresado != perfil.pin:
+            messages.error(request, "PIN de seguridad incorrecto. Verifique sus credenciales.")
+            return render(request, 'portal_asistencia.html', context)
+            
+        # ... (si el PIN es correcto, sigue con la carga de alumnos o guardado) ...
         modulo_id = request.POST.get('modulo')
         grupo_input = request.POST.get('grupo', '').strip().upper() # SIEMPRE MAYÚSCULAS
         
