@@ -170,21 +170,22 @@ class AlumnoAdmin(admin.ModelAdmin):
         'apellidos', 'nombres', 'rut', 'estado_rut', 'grupo_actual', 'estado_correo'
     )
     search_fields = ('nombres', 'apellidos', 'rut', 'correo')
-    list_filter = ('correo_confirmado', 'rut_confirmado')
+    #list_filter = ('correo_confirmado', 'rut_confirmado')
+    list_filter = (GrupoAlumnoFilter,)
     list_per_page = 100
     ordering = ('apellidos', 'nombres') # 🔤 Orden Alfabético PDF
     
     inlines = [InscripcionInline, PagoInline]
     
-    fields = (
-        'nombres', 'apellidos', 'rut', 'rut_confirmado', 'direccion', 'comuna', 
-        'correo', 'telefono', 'fecha_registro', 'boton_enviar_codigo', 
-        'correo_confirmado', 'codigo_ingresado', 'boton_validar_codigo', 'ficha_alumno'
-    )
-    readonly_fields = (
-        'fecha_registro', 'rut_confirmado', 'correo_confirmado', 
-        'boton_enviar_codigo', 'boton_validar_codigo', 'ficha_alumno'
-    )
+    #fields = (
+    #   'nombres', 'apellidos', 'rut', 'rut_confirmado', 'direccion', 'comuna', 
+    #   'correo', 'telefono', 'fecha_registro', 'boton_enviar_codigo', 
+    #   'correo_confirmado', 'codigo_ingresado', 'boton_validar_codigo', 'ficha_alumno'
+    #)
+    #readonly_fields = (
+    #    'fecha_registro', 'rut_confirmado', 'correo_confirmado', 
+    #    'boton_enviar_codigo', 'boton_validar_codigo', 'ficha_alumno'
+    #)
 
     def estado_rut(self, obj): 
         return "✅ Válido" if obj.rut_confirmado else "❌ Pendiente/Inválido"
