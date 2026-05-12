@@ -171,7 +171,6 @@ class AlumnoAdmin(admin.ModelAdmin):
     )
     search_fields = ('nombres', 'apellidos', 'rut', 'correo')
     #list_filter = ('correo_confirmado', 'rut_confirmado')
-    list_filter = (GrupoAlumnoFilter,)
     list_per_page = 100
     ordering = ('apellidos', 'nombres') # 🔤 Orden Alfabético PDF
     
