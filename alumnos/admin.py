@@ -174,7 +174,7 @@ class AlumnoAdmin(admin.ModelAdmin):
     search_fields = ('nombres', 'apellidos', 'rut', 'correo')
     list_filter = ('correo_confirmado', 'rut_confirmado')
     list_per_page = 100
-    ordering = ('apellidos', 'nombres') # 🔤 Orden Alfabético PDF
+    ordering = ('apellidos', 'nombres')
     
     inlines = [InscripcionInline]
     
@@ -188,6 +188,55 @@ class AlumnoAdmin(admin.ModelAdmin):
         'boton_enviar_codigo', 'boton_validar_codigo', 'ficha_alumno'
     )
 
+    # --- FUNCIÓN ÚNICA DE GUARDADO (FUSIONADA) ---
+    def save_model(self, request, obj, form, change):
+        # A. Lógica de Auditoría
+        accion_auditoria = "EDICIÓN" if change else "CREACIÓN"
+        
+        # B. Lógica de RUT
+        rut_original = obj.rut
+        if obj.rut:
+            rut_limpio = obj.rut.upper().replace(".", "").replace("-", "").strip()
+            if validar_rut_chileno(rut_limpio):
+                obj.rut = formatear_rut(rut_limpio)
+                obj.rut_confirmado = True
+            else:
+                obj.rut_confirmado = False
+                messages.error(request, f"El RUT ingresado no es válido: {rut_original}")
+                Auditoria.objects.create(
+                    usuario=request.user.username, 
+                    accion="RUT INVALIDO", 
+                    modelo="ALUMNO", 
+                    objeto_id=obj.id or 0, 
+                    descripcion=f"RUT inválido ingresado: {rut_original}"
+                )
+
+        # C. Lógica de Validación de Código de Correo
+        if "_validar_codigo" in request.POST:
+            codigo_ingresado = str(obj.codigo_ingresado).strip() if obj.codigo_ingresado else ""
+            codigo_real = str(obj.codigo_confirmacion).strip() if obj.codigo_confirmacion else ""
+            
+            if obj.intentos_codigo >= 3: 
+                messages.error(request, "Demasiados intentos. Debe enviar un nuevo código.")
+            elif not obj.fecha_codigo: 
+                messages.error(request, "Debe enviar primero un código al correo.")
+            elif timezone.now() > (obj.fecha_codigo + timedelta(minutes=10)): 
+                messages.error(request, "El código expiró. Debe enviar un nuevo código.")
+            elif codigo_ingresado and codigo_ingresado == codigo_real:
+                obj.correo_confirmado = True
+                obj.codigo_ingresado = None
+                obj.intentos_codigo = 0
+                messages.success(request, "Correo confirmado correctamente ✅")
+                registrar_auditoria(request, obj, "CONFIRMAR CORREO")
+            else:
+                obj.intentos_codigo += 1
+                messages.error(request, f"Código incorrecto ❌ Intento {obj.intentos_codigo} de 3.")
+
+        # D. Guardado final y Auditoría General
+        super().save_model(request, obj, form, change)
+        registrar_auditoria(request, obj, accion_auditoria)
+
+    # --- FUNCIONES DE ESTADO Y BOTONES ---
     def estado_rut(self, obj): 
         return "✅ Válido" if obj.rut_confirmado else "❌ Pendiente/Inválido"
     estado_rut.short_description = "RUT"
@@ -223,6 +272,7 @@ class AlumnoAdmin(admin.ModelAdmin):
         return "Primero debe guardar el alumno."
     ficha_alumno.short_description = "Ficha del alumno"
 
+    # --- GESTIÓN DE URLS Y QUERIES ---
     def get_urls(self):
         from django.urls import path
         urls = super().get_urls()
@@ -255,13 +305,7 @@ class AlumnoAdmin(admin.ModelAdmin):
         )
         try:
             email.send(fail_silently=False)
-            Auditoria.objects.create(
-                usuario=request.user.username, 
-                accion="ENVIAR CODIGO CORREO", 
-                modelo="Alumno", 
-                objeto_id=alumno.id, 
-                descripcion=f"Se generó y envió nuevo código a {alumno.correo}"
-            )
+            registrar_auditoria(request, alumno, "ENVIAR CODIGO CORREO")
             messages.success(request, f"Código enviado correctamente a {alumno.correo}.")
         except Exception as e:
             messages.error(request, f"No se pudo enviar el correo: {e}")
@@ -293,52 +337,6 @@ class AlumnoAdmin(admin.ModelAdmin):
     def has_delete_permission(self, request, obj=None): 
         return request.user.is_superuser
 
-    def save_model(self, request, obj, form, change):
-        rut_original = obj.rut
-        if obj.rut:
-            rut_limpio = obj.rut.upper().replace(".", "").replace("-", "").strip()
-            if validar_rut_chileno(rut_limpio):
-                obj.rut = formatear_rut(rut_limpio)
-                obj.rut_confirmado = True
-            else:
-                obj.rut_confirmado = False
-                messages.error(request, f"El RUT ingresado no es válido: {rut_original}")
-                Auditoria.objects.create(
-                    usuario=request.user.username, 
-                    accion="RUT INVALIDO", 
-                    modelo="Alumno", 
-                    objeto_id=obj.id or 0, 
-                    descripcion=f"RUT inválido ingresado: {rut_original}"
-                )
-
-        if "_validar_codigo" in request.POST:
-            codigo_ingresado = str(obj.codigo_ingresado).strip() if obj.codigo_ingresado else ""
-            codigo_real = str(obj.codigo_confirmacion).strip() if obj.codigo_confirmacion else ""
-            
-            if obj.intentos_codigo >= 3: 
-                messages.error(request, "Demasiados intentos. Debe enviar un nuevo código.")
-            elif not obj.fecha_codigo: 
-                messages.error(request, "Debe enviar primero un código al correo.")
-            elif timezone.now() > (obj.fecha_codigo + timedelta(minutes=10)): 
-                messages.error(request, "El código expiró. Debe enviar un nuevo código.")
-            elif codigo_ingresado and codigo_ingresado == codigo_real:
-                obj.correo_confirmado = True
-                obj.codigo_ingresado = None
-                obj.intentos_codigo = 0
-                messages.success(request, "Correo confirmado correctamente ✅")
-                Auditoria.objects.create(
-                    usuario=request.user.username, 
-                    accion="CONFIRMAR CORREO", 
-                    modelo="Alumno", 
-                    objeto_id=obj.id or 0, 
-                    descripcion=f"Correo confirmado para {obj.correo}"
-                )
-            else:
-                obj.intentos_codigo += 1
-                messages.error(request, f"Código incorrecto ❌ Intento {obj.intentos_codigo} de 3.")
-                
-        super().save_model(request, obj, form, change)
-
     def response_change(self, request, obj):
         if "_validar_codigo" in request.POST: 
             return HttpResponseRedirect(f"/admin/alumnos/alumno/{obj.id}/change/")
@@ -346,7 +344,6 @@ class AlumnoAdmin(admin.ModelAdmin):
 
     def response_add(self, request, obj, post_url_continue=None):
         return HttpResponseRedirect(f"/admin/alumnos/alumno/{obj.id}/")
-
 @admin.register(Inscripcion)
 class InscripcionAdmin(admin.ModelAdmin):
     list_display = ('alumno', 'curso', 'grupo', 'fecha_inicio', 'estado')
@@ -401,6 +398,11 @@ class PagoAdmin(admin.ModelAdmin):
             return f"${obj.monto_total:,.0f}".replace(",", ".")
         return "$0"
     formato_monto.short_description = 'Monto Total'
+
+    def save_model(self, request, obj, form, change):
+        accion = "EDICIÓN DE PAGO" if change else "CREACIÓN DE PAGO"
+        super().save_model(request, obj, form, change)
+        registrar_auditoria(request, obj, accion)
     
 @admin.register(Cuota)
 class CuotaAdmin(admin.ModelAdmin):

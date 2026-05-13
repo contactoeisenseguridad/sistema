@@ -68,6 +68,7 @@ class Inscripcion(models.Model):
         return f"{self.alumno} - {self.curso}"
 
 
+# ✅ ASÍ DEBE QUEDAR EN models.py ✅
 class Auditoria(models.Model):
     usuario = models.CharField(max_length=100)
     accion = models.CharField(max_length=50)
@@ -76,9 +77,13 @@ class Auditoria(models.Model):
     descripcion = models.TextField()
     fecha = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        verbose_name = "Auditoría"
+        verbose_name_plural = "Auditorías"
+        ordering = ['-fecha']
+
     def __str__(self):
         return f"{self.usuario} - {self.accion} - {self.fecha}"
-
 
 class Aviso(models.Model):
     titulo = models.CharField(max_length=200, default="Aviso")
