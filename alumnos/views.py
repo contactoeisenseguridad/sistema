@@ -1,11 +1,14 @@
 from datetime import datetime
-from django.contrib.auth.decorators import login_required, permission_required
+from django.contrib.auth.decorators import login_required, permission_required, user_passes_test # 👈 Asegúrate que diga user_passes_test
 from django.shortcuts import render, get_object_or_404, redirect
 from django.http import HttpResponse
 from django.contrib import messages
+from django.core.mail import send_mail, EmailMessage # 👈 Importamos EmailMessage para adjuntos
 from django.core.mail import send_mail
 from django.conf import settings
 from django.utils import timezone
+import os # 👈 Importamos os para buscar los PDFs
+from .models import Alumno, Inscripcion
 
 import openpyxl
 
@@ -290,3 +293,109 @@ def portal_asistencia(request):
         })
 
     return render(request, 'portal_asistencia.html', context)
+
+# Para que solo los administradores o personal autorizado puedan mandar correos masivos
+@login_required
+@user_passes_test(lambda u: u.is_staff)
+def buzon_masivo(request):
+    grupos = Inscripcion.objects.values_list('grupo', flat=True).distinct().exclude(grupo__isnull=True).exclude(grupo__exact='')
+
+    if request.method == 'POST':
+        grupo_seleccionado = request.POST.get('grupo')
+        tipo_correo = request.POST.get('tipo_correo')
+        horario_curso = request.POST.get('horario_curso', '') # 👈 Capturamos lo que pegues en la caja
+
+        if not grupo_seleccionado or not tipo_correo:
+            messages.error(request, "Debe seleccionar un grupo y un tipo de correo.")
+            return redirect('buzon_masivo')
+
+        alumnos_del_grupo = Alumno.objects.filter(inscripciones__grupo=grupo_seleccionado).distinct()
+        exitos = 0
+        errores = 0
+
+        for alumno in alumnos_del_grupo:
+            if not alumno.correo:
+                errores += 1
+                continue
+
+            # 📩 1. CORREO DE BIENVENIDA CON ADJUNTOS
+            if tipo_correo == 'bienvenida':
+                # Calculamos el nombre de usuario (RUT sin puntos ni dígito verificador)
+                rut_usuario = alumno.rut.split('-')[0].replace('.', '').strip()
+                
+                asunto = "Bienvenido a la plataforma virtual - OTEC UNO"
+                cuerpo = (
+                    f"Estimado(a) {alumno.nombres} {alumno.apellidos},\n\n"
+                    f"Junto con saludar, le damos la bienvenida a nuestra plataforma virtual de capacitación.\n"
+                    f"Le informamos que ya puede acceder a la plataforma a través del siguiente enlace:\n"
+                    f"http://virtual.otecuno.cl\n\n"
+                    f"Su nombre de usuario corresponde a su RUT sin dígito verificador ni puntos.\n"
+                    f"Ejemplo:\n"
+                    f"RUT: 12.345.678-9\n"
+                    f"Usuario: 12345678\n\n"
+                    f"Sus datos exactos de acceso son:\n"
+                    f"Usuario: {rut_usuario}\n"
+                    f"Contraseña: {rut_usuario} (Contraseña por defecto)\n\n"
+                    f"En caso de cualquier duda o inconveniente de acceso, puede comunicarse con nosotros al correo: contacto@otecuno.cl\n\n"
+                    f"Además, se adjuntan los siguientes documentos:\n"
+                    f"- Manual paso a paso para acceder a la plataforma virtual.\n"
+                    f"- Documento con todos los links de las clases correspondientes a su curso.\n\n"
+                    f"Tus clases son los días y en horarios:\n"
+                    f"{horario_curso}\n\n"
+                    f"Agradecemos su preferencia y le deseamos mucho éxito en su proceso de capacitación.\n\n"
+                    f"Atentamente,\n"
+                    f"OTEC UNO E.I.R.L.\n"
+                    f"Alameda Libertador Bernardo O’Higgins 1112 Oficina 802, Santiago\n"
+                    f"www.otecuno.cl"
+                )
+
+                # Creamos el correo avanzado para poder meterle adjuntos
+                email = EmailMessage(
+                    subject=asunto,
+                    body=cuerpo,
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    to=[alumno.correo],
+                )
+
+                # Rutas a los archivos (Deben estar en la carpeta raíz de tu proyecto, junto a manage.py)
+                ruta_manual = os.path.join(settings.BASE_DIR, 'manual_aula_virtual.pdf')
+                ruta_links = os.path.join(settings.BASE_DIR, 'links_clases.pdf')
+
+                if os.path.exists(ruta_manual):
+                    email.attach_file(ruta_manual)
+                if os.path.exists(ruta_links):
+                    email.attach_file(ruta_links)
+
+                try:
+                    email.send(fail_silently=False)
+                    exitos += 1
+                except Exception:
+                    errores += 1
+
+            # 📜 2. CORREO DE COMPROBANTE NORMAL
+            elif tipo_correo == 'comprobante':
+                inscripcion = alumno.inscripciones.filter(grupo=grupo_seleccionado).last()
+                asunto = f"Comprobante de Matrícula - {inscripcion.curso if inscripcion else 'Curso'}"
+                cuerpo = (f"COMPROBANTE DE MATRÍCULA OFICIAL\n"
+                          f"--------------------------------------------------\n"
+                          f"Nombre: {alumno.nombres} {alumno.apellidos}\n"
+                          f"RUT: {alumno.rut}\n"
+                          f"Grupo: {grupo_seleccionado}\n"
+                          f"Fecha: {timezone.now().strftime('%d/%m/%Y')}\n"
+                          f"--------------------------------------------------\n"
+                          f"Ficha digital: https://sistema.otecuno.app/alumno/{alumno.id}/\n")
+
+                try:
+                    send_mail(asunto, cuerpo, settings.DEFAULT_FROM_EMAIL, [alumno.correo], fail_silently=False)
+                    exitos += 1
+                except Exception:
+                    errores += 1
+
+        if exitos > 0:
+            messages.success(request, f"✅ ¡Éxito! Se enviaron {exitos} correos de '{tipo_correo}' al grupo {grupo_seleccionado}.")
+        if errores > 0:
+            messages.warning(request, f"⚠️ {errores} alumnos no recibieron el correo (sin email registrado o error de servidor).")
+
+        return redirect('buzon_masivo')
+
+    return render(request, 'buzon_masivo.html', {'grupos': grupos})
