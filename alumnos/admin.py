@@ -371,7 +371,7 @@ class InscripcionAdmin(admin.ModelAdmin):
 class PagoAdmin(admin.ModelAdmin):
     # 1. Configuración del Listado (Unificada)
     # Se eliminó 'fecha_pago' porque no está en tus 'fields' y agregué 'inscripcion'
-    list_display = ('alumno', 'inscripcion', 'formato_monto', 'metodo_pago')
+    list_display = ('alumno', 'formato_monto', 'metodo_pago')
     search_fields = ('alumno__nombres', 'alumno__apellidos', 'alumno__rut')
     list_filter = ('metodo_pago',) # Eliminada fecha_pago si no existe como campo date
     autocomplete_fields = ['alumno']
