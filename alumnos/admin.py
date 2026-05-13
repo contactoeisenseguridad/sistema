@@ -369,45 +369,67 @@ class InscripcionAdmin(admin.ModelAdmin):
 
 @admin.register(Pago)
 class PagoAdmin(admin.ModelAdmin):
-    list_display = ('alumno', 'metodo_pago', 'monto_total', 'cantidad_cuotas', 'fecha_pago')
-    search_fields = ('alumno__nombres', 'alumno__apellidos', 'alumno__rut')
-    list_filter = ('metodo_pago', 'fecha_pago')
-    autocomplete_fields = ['alumno']
-    fields = ('alumno', 'inscripcion', 'metodo_pago', 'monto_total', 'cantidad_cuotas', 'observaciones')
+    # 1. Configuración del Listado (Unificada)
+    # Se eliminó 'fecha_pago' porque no está en tus 'fields' y agregué 'inscripcion'
     list_display = ('alumno', 'inscripcion', 'formato_monto', 'metodo_pago')
-
+    search_fields = ('alumno__nombres', 'alumno__apellidos', 'alumno__rut')
+    list_filter = ('metodo_pago',) # Eliminada fecha_pago si no existe como campo date
+    autocomplete_fields = ['alumno']
+    
+    # 2. Configuración del Formulario
+    fields = ('alumno', 'inscripcion', 'metodo_pago', 'monto_total', 'cantidad_cuotas', 'observaciones')
     inlines = [CuotaInline]
 
-# --- LÓGICA DE FILTRADO DINÁMICO (Punto 2) ---
+    # --- LÓGICA DE FILTRADO DINÁMICO CORREGIDA ---
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
         if db_field.name == "inscripcion":
-            # Si ya seleccionamos un alumno en el formulario
             parent_obj_id = request.resolver_match.kwargs.get('object_id')
             if parent_obj_id:
-                pago = Pago.objects.get(pk=parent_obj_id)
-                kwargs["queryset"] = inscripcion.objects.filter(alumno=pago.alumno)
+                try:
+                    pago = Pago.objects.get(pk=parent_obj_id)
+                    if pago.alumno:
+                        # IMPORTANTE: Inscripcion con "I" mayúscula
+                        kwargs["queryset"] = Inscripcion.objects.filter(alumno=pago.alumno)
+                except (Pago.DoesNotExist, NameError):
+                    # Si hay error o el pago no existe, muestra un queryset vacío o el default
+                    pass
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
     # --- FORMATO DE DINERO $XXX.XXX ---
     def formato_monto(self, obj):
         if obj.monto_total:
-            # Formatea 100000 a $100.000
             return f"${obj.monto_total:,.0f}".replace(",", ".")
         return "$0"
     formato_monto.short_description = 'Monto Total'
     
 @admin.register(Cuota)
 class CuotaAdmin(admin.ModelAdmin):
+    # Punto 6: Listado de deudores con formato moneda y nombres claros
     list_display = ('alumno_nombre', 'numero_cuota', 'formato_monto_cuota', 'fecha_vencimiento', 'estado')
     list_filter = ('estado', 'fecha_vencimiento')
+    
+    # IMPORTANTE: search_fields permite que el buscador de arriba encuentre por RUT o Nombre
     search_fields = ('pago__alumno__nombres', 'pago__alumno__apellidos', 'pago__alumno__rut')
+    
+    # Optimización: Carga el pago y el alumno de una sola vez para que sea rápido
+    list_select_related = ('pago__alumno',)
 
+    # --- FORMATO DE DINERO $XXX.XXX ---
     def formato_monto_cuota(self, obj):
-        return f"${obj.monto:,.0f}".replace(",", ".")
+        if obj.monto:
+            return f"${obj.monto:,.0f}".replace(",", ".")
+        return "$0"
     formato_monto_cuota.short_description = 'Monto Cuota'
 
+    # --- NOMBRE DEL ALUMNO (PROTEGIDO) ---
     def alumno_nombre(self, obj):
-        return f"{obj.pago.alumno}"
+        try:
+            # Verificamos que exista el pago y el alumno antes de mostrarlo
+            if obj.pago and obj.pago.alumno:
+                return f"{obj.pago.alumno}"
+        except Exception:
+            pass
+        return "Sin Alumno"
     alumno_nombre.short_description = "Alumno"
 
 

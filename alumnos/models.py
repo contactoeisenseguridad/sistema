@@ -116,7 +116,6 @@ class Pago(models.Model):
     fecha_registro = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        # CAMBIO DE NOMBRE A COBROS
         verbose_name = "Pago"
         verbose_name_plural = "Pagos"
 
