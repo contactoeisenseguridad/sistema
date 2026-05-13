@@ -282,7 +282,9 @@ def portal_asistencia(request):
         # Mapeamos la asistencia actual para que el HTML marque los Radio Buttons correspondientes
         asistencias_actuales = Asistencia.objects.filter(sesion=sesion)
         mapa_asistencia = {a.alumno_id: a.presente for a in asistencias_actuales}
-
+        for a in alumnos:
+            a.asistencia_actual = mapa_asistencia.get(a.id, None)
+        
         context.update({
             'alumnos': alumnos,
             'grupo_seleccionado': grupo_input,
