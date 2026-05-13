@@ -117,8 +117,8 @@ class Pago(models.Model):
 
     class Meta:
         # CAMBIO DE NOMBRE A COBROS
-        verbose_name = "Cobro"
-        verbose_name_plural = "Cobros"
+        verbose_name = "Pago"
+        verbose_name_plural = "Pagos"
 
     def __str__(self):
         return f"{self.alumno} - ${self.monto_total}"

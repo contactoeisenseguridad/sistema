@@ -400,6 +400,7 @@ class PagoAdmin(admin.ModelAdmin):
 class CuotaAdmin(admin.ModelAdmin):
     list_display = ('alumno_nombre', 'numero_cuota', 'formato_monto_cuota', 'fecha_vencimiento', 'estado')
     list_filter = ('estado', 'fecha_vencimiento')
+    search_fields = ('pago__alumno__nombres', 'pago__alumno__apellidos', 'pago__alumno__rut')
 
     def formato_monto_cuota(self, obj):
         return f"${obj.monto:,.0f}".replace(",", ".")
@@ -407,6 +408,7 @@ class CuotaAdmin(admin.ModelAdmin):
 
     def alumno_nombre(self, obj):
         return f"{obj.pago.alumno}"
+    alumno_nombre.short_description = "Alumno"
 
 
 # ==========================================
