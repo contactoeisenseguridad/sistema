@@ -7,7 +7,8 @@ from .views import (
     formulario_exportar_excel,
     exportar_excel_grupo,
     carga_masiva_alumnos,
-    portal_asistencia,  # 👈 1. Agrégala aquí
+    portal_asistencia,
+    buzon_masivo,  # 👈 1. Agrégala aquí
 )
 
 urlpatterns = [
@@ -19,4 +20,5 @@ urlpatterns = [
     path('exportar-excel/', exportar_excel_grupo, name='exportar_excel_grupo'),
     path('asistencia/', portal_asistencia, name='portal_asistencia'), # 👈 2. Quita el "views."
     path('carga-masiva/', carga_masiva_alumnos, name='carga_masiva_alumnos'),
+    path('buzon_masivo/', buzon_masivo, name='buzon_masivo'),
 ]
