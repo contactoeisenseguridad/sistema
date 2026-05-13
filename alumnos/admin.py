@@ -15,6 +15,8 @@ from django.http import HttpResponseRedirect
 from django.shortcuts import render, get_object_or_404
 from django.utils import timezone
 from django.utils.html import format_html
+from django import forms
+from .models import Pago, Cuota, Alumno
 
 from .models import (
     Alumno, Inscripcion, Auditoria, Aviso, Pago, Cuota, GastoOperacional,
@@ -146,8 +148,8 @@ class PagoInline(admin.TabularInline):
 
 class CuotaInline(admin.TabularInline):
     model = Cuota
-    extra = 0
-    fields = ('numero_cuota', 'monto', 'fecha_vencimiento', 'fecha_pago', 'estado')
+    extra = 1
+    fields = ('numero_cuota', 'monto', 'fecha_vencimiento', 'estado')
 
     def get_readonly_fields(self, request, obj=None):
         if not request.user.is_superuser and obj: 
@@ -174,7 +176,7 @@ class AlumnoAdmin(admin.ModelAdmin):
     list_per_page = 100
     ordering = ('apellidos', 'nombres') # 🔤 Orden Alfabético PDF
     
-    inlines = [InscripcionInline, PagoInline]
+    inlines = [InscripcionInline]
     
     fields = (
         'nombres', 'apellidos', 'rut', 'rut_confirmado', 'direccion', 'comuna', 
@@ -370,13 +372,41 @@ class PagoAdmin(admin.ModelAdmin):
     list_display = ('alumno', 'metodo_pago', 'monto_total', 'cantidad_cuotas', 'fecha_pago')
     search_fields = ('alumno__nombres', 'alumno__apellidos', 'alumno__rut')
     list_filter = ('metodo_pago', 'fecha_pago')
+    autocomplete_fields = ['alumno']
+    fields = ('alumno', 'inscripcion', 'metodo_pago', 'monto_total', 'cantidad_cuotas', 'observaciones')
+    list_display = ('alumno', 'inscripcion', 'formato_monto', 'metodo_pago')
+
     inlines = [CuotaInline]
 
+# --- LÓGICA DE FILTRADO DINÁMICO (Punto 2) ---
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == "inscripcion":
+            # Si ya seleccionamos un alumno en el formulario
+            parent_obj_id = request.resolver_match.kwargs.get('object_id')
+            if parent_obj_id:
+                pago = Pago.objects.get(pk=parent_obj_id)
+                kwargs["queryset"] = inscripcion.objects.filter(alumno=pago.alumno)
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
+    # --- FORMATO DE DINERO $XXX.XXX ---
+    def formato_monto(self, obj):
+        if obj.monto_total:
+            # Formatea 100000 a $100.000
+            return f"${obj.monto_total:,.0f}".replace(",", ".")
+        return "$0"
+    formato_monto.short_description = 'Monto Total'
+    
 @admin.register(Cuota)
 class CuotaAdmin(admin.ModelAdmin):
-    list_display = ('pago', 'numero_cuota', 'monto', 'fecha_vencimiento', 'estado')
+    list_display = ('alumno_nombre', 'numero_cuota', 'formato_monto_cuota', 'fecha_vencimiento', 'estado')
     list_filter = ('estado', 'fecha_vencimiento')
+
+    def formato_monto_cuota(self, obj):
+        return f"${obj.monto:,.0f}".replace(",", ".")
+    formato_monto_cuota.short_description = 'Monto Cuota'
+
+    def alumno_nombre(self, obj):
+        return f"{obj.pago.alumno}"
 
 
 # ==========================================

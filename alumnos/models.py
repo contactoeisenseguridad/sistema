@@ -110,10 +110,15 @@ class Pago(models.Model):
     monto_total = models.PositiveIntegerField()
     cantidad_cuotas = models.PositiveIntegerField(default=1)
 
-    fecha_pago = models.DateField(default=timezone.localdate)
+    # 4. FECHA DE PAGO ELIMINADA DEL FORMULARIO (Se deja null en el modelo)
+    fecha_pago = models.DateField(null=True, blank=True) 
     observaciones = models.TextField(blank=True, null=True)
-
     fecha_registro = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        # CAMBIO DE NOMBRE A COBROS
+        verbose_name = "Cobro"
+        verbose_name_plural = "Cobros"
 
     def __str__(self):
         return f"{self.alumno} - ${self.monto_total}"
@@ -134,6 +139,8 @@ class Cuota(models.Model):
     numero_cuota = models.PositiveIntegerField()
     monto = models.PositiveIntegerField()
     fecha_vencimiento = models.DateField()
+    
+    # Se mantiene para registro interno cuando se marque como PAGADA
     fecha_pago = models.DateField(blank=True, null=True)
 
     estado = models.CharField(
@@ -147,15 +154,19 @@ class Cuota(models.Model):
         permissions = [
             ("can_edit_locked_cuotas", "Puede editar cuotas ya ingresadas"),
         ]
+        # PUNTO 6: NOMBRE EN EL MENU PRINCIPAL
+        verbose_name = "Cuota / Deuda"
         verbose_name_plural = "Listado de Deudores"
 
     def save(self, *args, **kwargs):
+        hoy = timezone.localdate()
+        
         if self.estado == 'PAGADA' and not self.fecha_pago:
-            self.fecha_pago = timezone.localdate()
+            self.fecha_pago = hoy
 
         if self.estado == 'PENDIENTE':
             self.fecha_pago = None
-            if self.fecha_vencimiento < timezone.localdate():
+            if self.fecha_vencimiento < hoy:
                 self.estado = 'VENCIDA'
 
         if self.estado == 'VENCIDA':
