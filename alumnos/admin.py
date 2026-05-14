@@ -680,6 +680,21 @@ def portal_asistencia(request):
     return render(request, 'portal_asistencia.html', {'modulos': modulos})
 
 # ==========================================
+# AUDITORIA
+# ==========================================
+
+@admin.register(Auditoria)
+class AuditoriaAdmin(admin.ModelAdmin):
+    list_display = ('fecha', 'usuario', 'accion', 'modelo', 'descripcion')
+    list_filter = ('accion', 'modelo', 'usuario')
+    search_fields = ('usuario', 'descripcion', 'modelo')
+    readonly_fields = ('usuario', 'accion', 'modelo', 'objeto_id', 'descripcion', 'fecha')
+
+    # Para que sea un registro histórico real, impedimos crear o borrar a mano
+    def has_add_permission(self, request): return False
+    def has_delete_permission(self, request, obj=None): return False
+
+# ==========================================
 # CONFIGURACIÓN VISUAL DEL PANEL
 # ==========================================
 admin.site.site_header = "Sistema Operativo - OTEC Uno"
