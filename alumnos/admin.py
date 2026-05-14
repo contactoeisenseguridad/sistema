@@ -695,6 +695,15 @@ class AuditoriaAdmin(admin.ModelAdmin):
     def has_delete_permission(self, request, obj=None): return False
 
 # ==========================================
+# REPOSITORIO DE DOCUMENTOS
+# ==========================================
+
+@admin.register(PlantillaDocumento)
+class PlantillaDocumentoAdmin(admin.ModelAdmin):
+    list_display = ('nombre', 'codigo_referencia', 'fecha_creacion')
+    prepopulated_fields = {'codigo_referencia': ('nombre',)}
+
+# ==========================================
 # CONFIGURACIÓN VISUAL DEL PANEL
 # ==========================================
 admin.site.site_header = "Sistema Operativo - OTEC Uno"
