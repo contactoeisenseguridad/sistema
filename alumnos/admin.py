@@ -739,6 +739,72 @@ class PlantillaDocumentoAdmin(admin.ModelAdmin):
         registrar_auditoria(request, obj, accion)
 
 # ==========================================
+# 🚀 MOTOR DEL REPOSITORIO DE DOCUMENTOS
+# ==========================================
+
+def visor_repositorio_documentos(request):
+    plantillas = PlantillaDocumento.objects.all()
+    modulos = Modulo.objects.all()
+    documentos_finales = []
+    
+    if request.method == "POST":
+        plantilla_id = request.POST.get('plantilla')
+        grupo_input = request.POST.get('grupo').strip().upper()
+        modulo_id = request.POST.get('modulo')
+        
+        plantilla = get_object_or_404(PlantillaDocumento, id=plantilla_id)
+        modulo = get_object_or_404(Modulo, id=modulo_id)
+        
+        # Buscamos a los alumnos del grupo
+        inscripciones = Inscripcion.objects.filter(grupo=grupo_input)
+        
+        # Calcular horas totales programadas
+        total_horas_prog = SesionClase.objects.filter(
+            modulo=modulo, grupo=grupo_input
+        ).aggregate(total=Sum('horas_bloque'))['total'] or 0
+
+        for ins in inscripciones:
+            alumno = ins.alumno
+            
+            # Calcular horas asistidas (presente=True)
+            horas_asis = SesionClase.objects.filter(
+                modulo=modulo, 
+                grupo=grupo_input,
+                asistencia__alumno=alumno,
+                asistencia__presente=True
+            ).aggregate(total=Sum('horas_bloque'))['total'] or 0
+            
+            # Calcular porcentaje
+            pct = round((horas_asis / total_horas_prog * 100), 1) if total_horas_prog > 0 else 0
+            
+            # Procesar el HTML
+            from django.template import Template, Context
+            t = Template(plantilla.cuerpo_html)
+            c = Context({
+                'nombres': alumno.nombres,
+                'apellidos': alumno.apellidos,
+                'rut': alumno.rut,
+                'grupo': grupo_input,
+                'modulo_nombre': modulo.nombre,
+                'horas_totales': total_horas_prog,
+                'horas_asistidas': horas_asis,
+                'asistencia_modulo': f"{pct}%",
+                'fecha_hoy': timezone.now().strftime('%d/%m/%Y'),
+            })
+            
+            html_personalizado = t.render(c)
+            documentos_finales.append(html_personalizado)
+
+        return render(request, 'repositorio/visor_impresion.html', {
+            'documentos': documentos_finales,
+        })
+
+    return render(request, 'repositorio/panel_generador.html', {
+        'plantillas': plantillas,
+        'modulos': modulos
+    })
+
+# ==========================================
 # CONFIGURACIÓN VISUAL DEL PANEL
 # ==========================================
 admin.site.site_header = "Sistema Operativo - OTEC Uno"
