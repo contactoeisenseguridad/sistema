@@ -743,25 +743,47 @@ class PlantillaDocumentoAdmin(admin.ModelAdmin):
 # ==========================================
 
 def visor_repositorio_documentos(request):
-    from django.shortcuts import render
+    from django.shortcuts import render, get_object_or_404
+    from django.template import Template, Context
+    from django.utils import timezone
     
-    # Datos básicos para el formulario inicial
     plantillas = PlantillaDocumento.objects.all()
     modulos = Modulo.objects.all()
+    documentos_finales = []
     
+    # 1. Detectar si el usuario presionó el botón
     if request.method == "POST":
-        # CREAMOS UN DOCUMENTO DE PRUEBA MANUAL
-        documentos_finales = [
-            "<h2>HOLA, ESTO ES UNA PRUEBA 1</h2>",
-            "<h2>HOLA, ESTO ES UNA PRUEBA 2</h2>"
-        ]
+        grupo_input = request.POST.get('grupo', '').strip()
+        plantilla_id = request.POST.get('plantilla')
         
-        # Enviamos la lista al visor
+        # DEBUG: Si no encuentra alumnos, meteremos un mensaje de error en la lista
+        inscripciones = Inscripcion.objects.filter(grupo__icontains=grupo_input)
+        
+        if not inscripciones.exists():
+            documentos_finales.append(f"<h2 style='color:red;'>Error: No se encontraron alumnos en el grupo '{grupo_input}'</h2>")
+        else:
+            plantilla = get_object_or_404(PlantillaDocumento, id=plantilla_id)
+            
+            for ins in inscripciones:
+                alumno = ins.alumno
+                
+                # Renderizamos la plantilla con los datos base que pediste
+                t = Template(plantilla.cuerpo_html)
+                c = Context({
+                    'nombres': alumno.nombres,
+                    'apellidos': alumno.apellidos,
+                    'rut': alumno.rut,
+                    'grupo': ins.grupo,
+                    'fecha_hoy': timezone.now().strftime('%d/%m/%Y'),
+                })
+                documentos_finales.append(t.render(c))
+        
+        # 2. SALIDA CRITICA: Aquí enviamos los resultados al visor
         return render(request, 'repositorio/visor_impresion.html', {
             'documentos': documentos_finales,
         })
 
-    # Carga inicial del formulario
+    # 3. CARGA INICIAL: Si solo entra a ver la página (GET)
     return render(request, 'repositorio/repositorio-documentos.html', {
         'plantillas': plantillas,
         'modulos': modulos
