@@ -20,7 +20,7 @@ from .models import Pago, Cuota, Alumno
 
 from .models import (
     Alumno, Inscripcion, Auditoria, Aviso, Pago, Cuota, GastoOperacional,
-    PerfilUsuario, Modulo, SesionClase, Asistencia, PlanillaSPD
+    PerfilUsuario, Modulo, SesionClase, Asistencia, PlanillaSPD, PlantillaDocumento
 )
 
 # ==========================================
