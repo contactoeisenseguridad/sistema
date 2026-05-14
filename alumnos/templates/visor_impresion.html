@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Impresión Masiva - OTEC UNO</title>
+    <style>
+        /* Estilos para pantalla */
+        body { background: #525659; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        
+        .documento-pagina {
+            background: white;
+            color: black;
+            width: 21cm;
+            min-height: 29.7cm; /* Tamaño A4 */
+            padding: 1.5cm;
+            margin-bottom: 20px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.3);
+            box-sizing: border-box;
+            position: relative;
+        }
+
+        /* Estilos específicos para IMPRESIÓN */
+        @media print {
+            body { background: white; padding: 0; }
+            .no-print { display: none; }
+            .documento-pagina {
+                margin: 0;
+                box-shadow: none;
+                page-break-after: always; /* Esto crea el salto de página */
+                border: none;
+            }
+        }
+
+        .no-print {
+            background: #2ecc71;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            text-decoration: none;
+            font-weight: bold;
+            margin-bottom: 20px;
+            position: sticky;
+            top: 10px;
+            z-index: 100;
+        }
+    </style>
+</head>
+<body>
+    <a href="#" class="no-print" onclick="window.print(); return false;">🖨️ Mandar a Impresora / Guardar PDF</a>
+
+    <div class="contenedor-masivo">
+        {% for doc in documentos %}
+            <div class="documento-pagina">
+                {{ doc|safe }}
+            </div>
+        {% empty %}
+            <div class="documento-pagina">
+                <p>No se encontraron alumnos en este grupo para procesar.</p>
+            </div>
+        {% endfor %}
+    </div>
+</body>
+</html>

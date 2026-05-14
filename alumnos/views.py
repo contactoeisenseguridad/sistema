@@ -7,8 +7,10 @@ from django.core.mail import send_mail, EmailMessage # 👈 Importamos EmailMess
 from django.core.mail import send_mail
 from django.conf import settings
 from django.utils import timezone
+from django.db.models import Sum
 import os # 👈 Importamos os para buscar los PDFs
-from .models import Alumno, Inscripcion
+from .models import Alumno, Inscripcion, PlantillaDocumento, SesionClase, Asistencia, Modulo
+from django.template import Template, Context
 
 import openpyxl
 
@@ -401,3 +403,64 @@ def buzon_masivo(request):
         return redirect('buzon_masivo')
 
     return render(request, 'buzon_masivo.html', {'grupos': grupos})
+
+def visor_repositorio_documentos(request):
+    plantillas = PlantillaDocumento.objects.all()
+    modulos = Modulo.objects.all()
+    documentos_finales = []
+    
+    if request.method == "POST":
+        plantilla_id = request.POST.get('plantilla')
+        grupo_input = request.POST.get('grupo').strip().upper()
+        modulo_id = request.POST.get('modulo')
+        
+        plantilla = get_object_or_404(PlantillaDocumento, id=plantilla_id)
+        modulo = get_object_or_404(Modulo, id=modulo_id)
+        
+        # Obtenemos a todos los alumnos inscritos en ese grupo
+        inscripciones = Inscripcion.objects.filter(grupo=grupo_input)
+        
+        # 1. Calcular horas totales programadas del módulo para ese grupo
+        total_horas_prog = SesionClase.objects.filter(
+            modulo=modulo, grupo=grupo_input
+        ).aggregate(total=Sum('horas_bloque'))['total'] or 0
+
+        for ins in inscripciones:
+            alumno = ins.alumno
+            
+            # 2. Calcular horas asistidas (donde presente=True)
+            horas_asis = SesionClase.objects.filter(
+                modulo=modulo, 
+                grupo=grupo_input,
+                asistencia__alumno=alumno,
+                asistencia__presente=True
+            ).aggregate(total=Sum('horas_bloque'))['total'] or 0
+            
+            # 3. Calcular porcentaje
+            pct = round((horas_asis / total_horas_prog * 100), 1) if total_horas_prog > 0 else 0
+            
+            # 4. Procesar el HTML de la plantilla con los datos del alumno
+            t = Template(plantilla.cuerpo_html)
+            c = Context({
+                'nombres': alumno.nombres,
+                'apellidos': alumno.apellidos,
+                'rut': alumno.rut,
+                'grupo': grupo_input,
+                'modulo_nombre': modulo.nombre,
+                'horas_totales': total_horas_prog,
+                'horas_asistidas': horas_asis,
+                'asistencia_modulo': f"{pct}%",
+                'fecha_hoy': timezone.now().strftime('%d/%m/%Y'),
+            })
+            
+            html_personalizado = t.render(c)
+            documentos_finales.append(html_personalizado)
+
+        return render(request, 'repositorio/visor_impresion.html', {
+            'documentos': documentos_finales,
+        })
+
+    return render(request, 'repositorio/panel_generador.html', {
+        'plantillas': plantillas,
+        'modulos': modulos
+    })
