@@ -743,67 +743,27 @@ class PlantillaDocumentoAdmin(admin.ModelAdmin):
 # ==========================================
 
 def visor_repositorio_documentos(request):
-    from django.template import Template, Context
-    from django.shortcuts import render, get_object_or_404
-    from django.utils import timezone
+    from django.shortcuts import render
     
+    # Datos básicos para el formulario inicial
     plantillas = PlantillaDocumento.objects.all()
     modulos = Modulo.objects.all()
-    documentos_finales = []
     
     if request.method == "POST":
-        plantilla_id = request.POST.get('plantilla')
-        grupo_input = request.POST.get('grupo', '').strip().upper()
-        modulo_id = request.POST.get('modulo')
+        # CREAMOS UN DOCUMENTO DE PRUEBA MANUAL
+        documentos_finales = [
+            "<h2>HOLA, ESTO ES UNA PRUEBA 1</h2>",
+            "<h2>HOLA, ESTO ES UNA PRUEBA 2</h2>"
+        ]
         
-        plantilla = get_object_or_404(PlantillaDocumento, id=plantilla_id)
-        modulo = get_object_or_404(Modulo, id=modulo_id)
-        
-        # 1. Buscamos las inscripciones del grupo
-        inscripciones = Inscripcion.objects.filter(grupo__icontains=grupo_input)
-        
-        for ins in inscripciones:
-            alumno = ins.alumno
-            
-            # 2. CALCULO BASADO SOLO EN TABLA ASISTENCIA
-            # Contamos cuántas veces aparece el alumno en este módulo para este grupo
-            total_clases = Asistencia.objects.filter(
-                alumno=alumno, 
-                modulo=modulo
-            ).count()
-            
-            # Contamos cuántas de esas veces estuvo "Presente"
-            clases_presente = Asistencia.objects.filter(
-                alumno=alumno, 
-                modulo=modulo, 
-                presente=True
-            ).count()
-            
-            # Calcular porcentaje
-            pct = round((clases_presente / total_clases * 100), 1) if total_clases > 0 else 0
-            
-            # 3. RENDERIZAR EL HTML
-            t = Template(plantilla.cuerpo_html)
-            c = Context({
-                'nombres': alumno.nombres,
-                'apellidos': alumno.apellidos,
-                'rut': alumno.rut,
-                'grupo': grupo_input,
-                'modulo_nombre': modulo.nombre,
-                'horas_totales': total_clases,       # Ahora representa total de registros
-                'horas_asistidas': clases_presente,  # Ahora representa total de presentes
-                'asistencia_modulo': f"{pct}%",
-                'fecha_hoy': timezone.now().strftime('%d/%m/%Y'),
-            })
-            
-            documentos_finales.append(t.render(c))
-
+        # Enviamos la lista al visor
         return render(request, 'repositorio/visor_impresion.html', {
             'documentos': documentos_finales,
         })
 
+    # Carga inicial del formulario
     return render(request, 'repositorio/repositorio-documentos.html', {
-        'plantillas': plantillas, 
+        'plantillas': plantillas,
         'modulos': modulos
     })
 
