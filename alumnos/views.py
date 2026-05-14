@@ -425,7 +425,9 @@ def visor_repositorio_documentos(request):
         # Unificamos alumnos
         ids_a_procesar = set()
         if grupo_input:
-            inscritos = Inscripcion.objects.filter(grupo=grupo_input).values_list('alumno_id', flat=True)
+            inscritos = Inscripcion.objects.filter(
+                grupo__iexact=grupo_input
+                ).values_list('alumno_id', flat=True)
             for aid in inscritos: ids_a_procesar.add(aid)
         for aid in alumnos_ids:
             if aid: ids_a_procesar.add(int(aid))
@@ -433,16 +435,31 @@ def visor_repositorio_documentos(request):
         # Generamos documentos
         for alu_id in ids_a_procesar:
             alumno = Alumno.objects.filter(id=alu_id).first()
-            if alumno:
-                t = Template(plantilla.cuerpo_html)
-                c = Context({
-                    'nombres': alumno.nombres,
-                    'apellidos': alumno.apellidos,
-                    'rut': alumno.rut,
-                    'grupo': grupo_input,
-                    'fecha_hoy': timezone.now().strftime('%d/%m/%Y'),
-                })
-                documentos_finales.append(t.render(c))
+            
+    if alumno:
+
+        # Buscar la inscripción más reciente del alumno
+        inscripcion = Inscripcion.objects.filter(
+            alumno=alumno
+        ).order_by('-fecha_inicio').first()
+
+        # Si escribieron grupo manualmente usa ese,
+        # si no, usa el grupo real del alumno
+        grupo_alumno = grupo_input or (
+            inscripcion.grupo if inscripcion else ''
+        )
+
+        t = Template(plantilla.cuerpo_html)
+
+        c = Context({
+            'nombres': alumno.nombres,
+            'apellidos': alumno.apellidos,
+            'rut': alumno.rut,
+            'grupo': grupo_alumno,
+            'fecha_hoy': timezone.now().strftime('%d/%m/%Y'),
+        })
+
+        documentos_finales.append(t.render(c))
         
         # SI HAY DOCUMENTOS, VAMOS AL VISOR
         if documentos_finales:

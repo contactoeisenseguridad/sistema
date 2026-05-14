@@ -29,21 +29,26 @@
             z-index: 100;
             cursor: pointer;
             border: none;
-        }
 
-        .documento-pagina {
+           .documento-pagina {
             background: white;
             color: black;
-            width: 21cm;
-            min-height: 29.7cm; /* Tamaño A4 */
+            width: 21.59cm;
+            min-height: 27.94cm;
             padding: 1.5cm;
             margin-bottom: 20px;
             box-shadow: 0 0 10px rgba(0,0,0,0.3);
             box-sizing: border-box;
-        }
+            overflow: hidden;
+}
 
         /* Estilos para IMPRESIÓN REAL */
-        @media print {
+        
+         @media print {
+            @page {
+            size: Letter;
+            margin: 0;
+}
             body { background: white; padding: 0; }
             .no-print-header { display: none; }
             .documento-pagina {
