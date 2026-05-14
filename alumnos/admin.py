@@ -24,6 +24,52 @@ from .models import (
 )
 
 # ==========================================
+# 🛡️ SISTEMA DE AUDITORÍA CENTRALIZADO
+# ==========================================
+
+def registrar_auditoria(request, obj, accion):
+    """
+    Función maestra para registrar movimientos. 
+    Usa un try/except para evitar que errores de texto tumben el servidor.
+    """
+    try:
+        # Intentamos obtener una representación legible del objeto
+        identificador = str(obj)
+    except:
+        identificador = f"ID: {obj.id}"
+
+    try:
+        Auditoria.objects.create(
+            usuario=request.user.username,
+            accion=accion,
+            modelo=obj._meta.verbose_name.upper(),
+            objeto_id=obj.id or 0,
+            descripcion=f"El usuario {request.user.username} realizó {accion} en: {identificador}"
+        )
+    except Exception as e:
+        # Si la auditoría falla, que no detenga la operación principal del sistema
+        print(f"Error registrando auditoría: {e}")
+
+@admin.register(Auditoria)
+class AuditoriaAdmin(admin.ModelAdmin):
+    list_display = ('fecha', 'usuario', 'accion', 'modelo', 'descripcion')
+    list_filter = ('accion', 'modelo', 'usuario', 'fecha')
+    search_fields = ('usuario', 'descripcion', 'modelo')
+    
+    # Bloqueo total de edición manual
+    readonly_fields = ('usuario', 'accion', 'modelo', 'objeto_id', 'descripcion', 'fecha')
+
+    def has_add_permission(self, request): 
+        return False
+    
+    def has_delete_permission(self, request, obj=None): 
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        # Permite ver el detalle pero no guardar cambios
+        return False
+
+# ==========================================
 # 1. INTEGRACIÓN MOODLE Y FUNCIONES ÚTILES
 # ==========================================
 
@@ -678,52 +724,6 @@ def portal_asistencia(request):
         })
 
     return render(request, 'portal_asistencia.html', {'modulos': modulos})
-
-# ==========================================
-# 🛡️ SISTEMA DE AUDITORÍA CENTRALIZADO
-# ==========================================
-
-def registrar_auditoria(request, obj, accion):
-    """
-    Función maestra para registrar movimientos. 
-    Usa un try/except para evitar que errores de texto tumben el servidor.
-    """
-    try:
-        # Intentamos obtener una representación legible del objeto
-        identificador = str(obj)
-    except:
-        identificador = f"ID: {obj.id}"
-
-    try:
-        Auditoria.objects.create(
-            usuario=request.user.username,
-            accion=accion,
-            modelo=obj._meta.verbose_name.upper(),
-            objeto_id=obj.id or 0,
-            descripcion=f"El usuario {request.user.username} realizó {accion} en: {identificador}"
-        )
-    except Exception as e:
-        # Si la auditoría falla, que no detenga la operación principal del sistema
-        print(f"Error registrando auditoría: {e}")
-
-@admin.register(Auditoria)
-class AuditoriaAdmin(admin.ModelAdmin):
-    list_display = ('fecha', 'usuario', 'accion', 'modelo', 'descripcion')
-    list_filter = ('accion', 'modelo', 'usuario', 'fecha')
-    search_fields = ('usuario', 'descripcion', 'modelo')
-    
-    # Bloqueo total de edición manual
-    readonly_fields = ('usuario', 'accion', 'modelo', 'objeto_id', 'descripcion', 'fecha')
-
-    def has_add_permission(self, request): 
-        return False
-    
-    def has_delete_permission(self, request, obj=None): 
-        return False
-
-    def has_change_permission(self, request, obj=None):
-        # Permite ver el detalle pero no guardar cambios
-        return False
 
 # ==========================================
 # REPOSITORIO DE DOCUMENTOS
