@@ -406,67 +406,49 @@ def buzon_masivo(request):
     return render(request, 'buzon_masivo.html', {'grupos': grupos})
 
 def visor_repositorio_documentos(request):
-    # 1. Cargamos datos para los selectores (esto arregla el buscador vacío)
+    from django.shortcuts import render, get_object_or_404
+    from django.template import Template, Context
+    from django.utils import timezone
+    from .models import Alumno, PlantillaDocumento, Inscripcion
+    
     plantillas = PlantillaDocumento.objects.all()
     todos_los_alumnos = Alumno.objects.all().order_by('apellidos')
-    modulos = Modulo.objects.all()
     documentos_finales = []
     
     if request.method == "POST":
         plantilla_id = request.POST.get('plantilla')
         grupo_input = request.POST.get('grupo', '').strip().upper()
         alumnos_ids = request.POST.getlist('alumnos_ids')
-        modulo_id = request.POST.get('modulo')
         
         plantilla = get_object_or_404(PlantillaDocumento, id=plantilla_id)
         
-        # Recolectar alumnos únicos (Grupo + Selección manual)
+        # Unificamos alumnos
         ids_a_procesar = set()
         if grupo_input:
-            de_grupo = Inscripcion.objects.filter(grupo__icontains=grupo_input).values_list('alumno_id', flat=True)
-            for aid in de_grupo: ids_a_procesar.add(aid)
+            inscritos = Inscripcion.objects.filter(grupo=grupo_input).values_list('alumno_id', flat=True)
+            for aid in inscritos: ids_a_procesar.add(aid)
         for aid in alumnos_ids:
             if aid: ids_a_procesar.add(int(aid))
 
-        # Procesar cada alumno
+        # Generamos documentos
         for alu_id in ids_a_procesar:
             alumno = Alumno.objects.filter(id=alu_id).first()
-            if not alumno: continue
-
-            # Lógica de Asistencia (Solo si se seleccionó módulo y hay grupo)
-            asistencia_data = {
-                'modulo_nombre': "N/A", 'horas_totales': 0, 
-                'horas_asistidas': 0, 'asistencia_modulo': "0%"
-            }
-            
-            if modulo_id and grupo_input:
-                modulo = Modulo.objects.filter(id=modulo_id).first()
-                if modulo:
-                    total_h = SesionClase.objects.filter(modulo=modulo, grupo=grupo_input).aggregate(total=Sum('horas_bloque'))['total'] or 0
-                    asis_h = SesionClase.objects.filter(modulo=modulo, grupo=grupo_input, asistencia__alumno=alumno, asistencia__presente=True).aggregate(total=Sum('horas_bloque'))['total'] or 0
-                    pct = round((asis_h / total_h * 100), 1) if total_h > 0 else 0
-                    asistencia_data.update({
-                        'modulo_nombre': modulo.nombre, 'horas_totales': total_h,
-                        'horas_asistidas': asis_h, 'asistencia_modulo': f"{pct}%"
-                    })
-
-            # Renderizar
-            t = Template(plantilla.cuerpo_html)
-            c = Context({
-                'nombres': alumno.nombres,
-                'apellidos': alumno.apellidos,
-                'rut': alumno.rut,
-                'grupo': grupo_input,
-                'fecha_hoy': timezone.now().strftime('%d/%m/%Y'),
-                **asistencia_data
-            })
-            documentos_finales.append(t.render(c))
+            if alumno:
+                t = Template(plantilla.cuerpo_html)
+                c = Context({
+                    'nombres': alumno.nombres,
+                    'apellidos': alumno.apellidos,
+                    'rut': alumno.rut,
+                    'grupo': grupo_input,
+                    'fecha_hoy': timezone.now().strftime('%d/%m/%Y'),
+                })
+                documentos_finales.append(t.render(c))
         
-        return render(request, 'repositorio/visor_impresion.html', {'documentos': documentos_finales})
+        # SI HAY DOCUMENTOS, VAMOS AL VISOR
+        if documentos_finales:
+            return render(request, 'repositorio/visor_impresion.html', {'documentos': documentos_finales})
 
-    # IMPORTANTE: Pasamos todo al HTML
     return render(request, 'repositorio/repositorio-documentos.html', {
         'plantillas': plantillas,
-        'todos_los_alumnos': todos_los_alumnos,
-        'modulos': modulos
+        'todos_los_alumnos': todos_los_alumnos
     })

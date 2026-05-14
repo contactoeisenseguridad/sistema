@@ -3,41 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <title>Generador Masivo - OTEC UNO</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
     <style>
         body { font-family: sans-serif; background: #121212; color: white; display: flex; justify-content: center; padding-top: 30px; }
         .card { background: #1e1e1e; padding: 30px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); width: 500px; }
         h2 { border-bottom: 2px solid #3498db; padding-bottom: 10px; margin-top: 0; }
         label { display: block; margin: 20px 0 5px; color: #bbb; font-weight: bold; }
         select, input { width: 100%; padding: 10px; border-radius: 4px; background: #2b2b2b; color: white; border: 1px solid #333; box-sizing: border-box; }
+        
+        /* Fix de colores para que se vea el texto negro en fondo blanco del dropdown */
+        .select2-results__option { color: #1a1a1a !important; background-color: #ffffff !important; }
+        .select2-results__option--highlighted[aria-selected] { background-color: #3498db !important; color: #ffffff !important; }
         .select2-container--default .select2-selection--multiple { background-color: #2b2b2b; border: 1px solid #333; }
-        .select2-container--default .select2-selection--multiple .select2-selection__choice { background-color: #3498db; border: none; color: white; }
+        .select2-container--default .select2-selection--multiple .select2-selection__choice { background-color: #3498db !important; border: none !important; color: white !important; }
+        .select2-search__field { color: white !important; }
+
         button { width: 100%; margin-top: 30px; padding: 15px; background: #3498db; border: none; color: white; font-weight: bold; cursor: pointer; border-radius: 4px; font-size: 16px; }
         button:hover { background: #2980b9; }
-
-/* Color del texto en la lista desplegable */
-.select2-results__option {
-    color: #1a1a1a !important; /* Negro para que se vea sobre el fondo blanco */
-    background-color: #ffffff !important;
-}
-
-/* Color del texto cuando pasas el mouse (highlight) */
-.select2-results__option--highlighted[aria-selected] {
-    background-color: #3498db !important;
-    color: #ffffff !important;
-}
-
-/* Color de los nombres ya seleccionados (las burbujas) */
-.select2-container--default .select2-selection--multiple .select2-selection__choice {
-    background-color: #3498db !important;
-    color: #ffffff !important;
-    border: none !important;
-}
-
-/* Color del texto dentro del buscador mientras escribes */
-.select2-search__field {
-    color: #ffffff !important; /* Blanco porque el fondo del buscador es negro */
-}
     </style>
 </head>
 <body>
@@ -53,26 +38,12 @@
                 {% endfor %}
             </select>
 
-            <label>2. Buscar Alumnos Específicos (Opcional):</label>
-<select name="alumnos_ids" id="alumnos_select" multiple="multiple" style="width: 100%;">
-    {% for a in todos_los_alumnos %}
-        <option value="{{ a.id }}">{{ a.rut }} - {{ a.apellidos|upper }} {{ a.nombres|upper }}</option>
-    {% endfor %}
-</select>
-
-<script>
-            $(document).ready(function() {
-                $('#alumnos_select').select2({
-                    placeholder: "Haz clic o escribe para buscar (puedes elegir varios)...",
-                    allowClear: true,
-                    width: '100%',
-                    closeOnSelect: false, // 👈 Esto evita que el buscador se cierre al elegir uno
-                    language: {
-                        noResults: function() { return "No se encontró ningún alumno con ese nombre o RUT"; }
-        }
-    });
-});
-</script>
+            <label>2. Buscar Alumnos Específicos:</label>
+            <select name="alumnos_ids" id="alumnos_select" multiple="multiple">
+                {% for a in todos_los_alumnos %}
+                    <option value="{{ a.id }}">{{ a.rut }} - {{ a.apellidos|upper }} {{ a.nombres|upper }}</option>
+                {% endfor %}
+            </select>
 
             <label>3. Código de Grupo (Opcional):</label>
             <input type="text" name="grupo" placeholder="Ej: FGS342026">
@@ -81,13 +52,12 @@
         </form>
     </div>
 
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
     <script>
         $(document).ready(function() {
             $('#alumnos_select').select2({
-                placeholder: "Haz clic o escribe para buscar alumnos...",
-                allowClear: true
+                placeholder: "Busca por RUT o Nombre...",
+                allowClear: true,
+                closeOnSelect: false
             });
         });
     </script>
