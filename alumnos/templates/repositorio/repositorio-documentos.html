@@ -14,6 +14,30 @@
         .select2-container--default .select2-selection--multiple .select2-selection__choice { background-color: #3498db; border: none; color: white; }
         button { width: 100%; margin-top: 30px; padding: 15px; background: #3498db; border: none; color: white; font-weight: bold; cursor: pointer; border-radius: 4px; font-size: 16px; }
         button:hover { background: #2980b9; }
+
+/* Color del texto en la lista desplegable */
+.select2-results__option {
+    color: #1a1a1a !important; /* Negro para que se vea sobre el fondo blanco */
+    background-color: #ffffff !important;
+}
+
+/* Color del texto cuando pasas el mouse (highlight) */
+.select2-results__option--highlighted[aria-selected] {
+    background-color: #3498db !important;
+    color: #ffffff !important;
+}
+
+/* Color de los nombres ya seleccionados (las burbujas) */
+.select2-container--default .select2-selection--multiple .select2-selection__choice {
+    background-color: #3498db !important;
+    color: #ffffff !important;
+    border: none !important;
+}
+
+/* Color del texto dentro del buscador mientras escribes */
+.select2-search__field {
+    color: #ffffff !important; /* Blanco porque el fondo del buscador es negro */
+}
     </style>
 </head>
 <body>
