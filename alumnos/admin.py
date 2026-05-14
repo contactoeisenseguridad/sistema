@@ -761,8 +761,16 @@ def visor_repositorio_documentos(request):
             plantilla = get_object_or_404(PlantillaDocumento, id=plantilla_id)
             modulo = get_object_or_404(Modulo, id=modulo_id)
             
-            inscripciones = Inscripcion.objects.filter(grupo=grupo_input)
+            inscripciones = Inscripcion.objects.filter(grupo__iexact=grupo_input)
             
+            if not inscripciones.exists():
+                from django.http import HttpResponse
+                grupos_reales = Inscripcion.objects.values_list('grupo', flat=True).distinct()[:10]
+                return HttpResponse(f"No encontré '{grupo_input}'. Grupos que existen en DB: {list(grupos_reales)}")
+                
+                # Si aún así no hay, intentamos una búsqueda parcial por si acaso
+                inscripciones = Inscripcion.objects.filter(grupo__icontains=grupo_input)            
+
             total_horas_prog = SesionClase.objects.filter(
                 modulo=modulo, grupo=grupo_input
             ).aggregate(total=Sum('horas_bloque'))['total'] or 0
