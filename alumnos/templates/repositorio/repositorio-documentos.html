@@ -30,13 +30,25 @@
             </select>
 
             <label>2. Buscar Alumnos Específicos (Opcional):</label>
-            <select name="alumnos_ids" id="alumnos_select" multiple="multiple" style="width: 100%;">
-                {% for a in todos_los_alumnos %}
-                    <option value="{{ a.id }}">{{ a.rut }} - {{ a.nombres }} {{ a.apellidos }}</option>
-                {% empty %}
-                    <option value="">ERROR: No hay alumnos en la base de datos</option>
-                {% endfor %}
-            </select>
+<select name="alumnos_ids" id="alumnos_select" multiple="multiple" style="width: 100%;">
+    {% for a in todos_los_alumnos %}
+        <option value="{{ a.id }}">{{ a.rut }} - {{ a.apellidos|upper }} {{ a.nombres|upper }}</option>
+    {% endfor %}
+</select>
+
+<script>
+            $(document).ready(function() {
+                $('#alumnos_select').select2({
+                    placeholder: "Haz clic o escribe para buscar (puedes elegir varios)...",
+                    allowClear: true,
+                    width: '100%',
+                    closeOnSelect: false, // 👈 Esto evita que el buscador se cierre al elegir uno
+                    language: {
+                        noResults: function() { return "No se encontró ningún alumno con ese nombre o RUT"; }
+        }
+    });
+});
+</script>
 
             <label>3. Código de Grupo (Opcional):</label>
             <input type="text" name="grupo" placeholder="Ej: FGS342026">

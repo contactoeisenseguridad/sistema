@@ -738,58 +738,6 @@ class PlantillaDocumentoAdmin(admin.ModelAdmin):
         super().save_model(request, obj, form, change)
         registrar_auditoria(request, obj, accion)
 
-# ==========================================
-# 🚀 MOTOR DEL REPOSITORIO DE DOCUMENTOS
-# ==========================================
-
-def visor_repositorio_documentos(request):
-    from django.shortcuts import render, get_object_or_404
-    from django.template import Template, Context
-    from django.utils import timezone
-    
-    # Traemos todo para los selectores
-    plantillas = PlantillaDocumento.objects.all()
-    todos_los_alumnos = Alumno.objects.all().order_by('apellidos')
-    documentos_finales = []
-    
-    if request.method == "POST":
-        plantilla_id = request.POST.get('plantilla')
-        grupo_input = request.POST.get('grupo', '').strip()
-        alumnos_ids = request.POST.getlist('alumnos_ids') # Lista de IDs del selector múltiple
-        
-        plantilla = get_object_or_404(PlantillaDocumento, id=plantilla_id)
-        
-        # Recolectar IDs de alumnos únicos
-        ids_a_procesar = set()
-        
-        # 1. Agregar alumnos del grupo
-        if grupo_input:
-            de_grupo = Inscripcion.objects.filter(grupo__icontains=grupo_input).values_list('alumno_id', flat=True)
-            for aid in de_grupo: ids_a_procesar.add(aid)
-            
-        # 2. Agregar alumnos seleccionados manualmente
-        for aid in alumnos_ids:
-            if aid: ids_a_procesar.add(int(aid))
-
-        # Procesar cada alumno
-        for alu_id in ids_a_procesar:
-            alumno = Alumno.objects.filter(id=alu_id).first()
-            if alumno:
-                t = Template(plantilla.cuerpo_html)
-                c = Context({
-                    'nombres': alumno.nombres,
-                    'apellidos': alumno.apellidos,
-                    'rut': alumno.rut,
-                    'fecha_hoy': timezone.now().strftime('%d/%m/%Y'),
-                })
-                documentos_finales.append(t.render(c))
-        
-        return render(request, 'repositorio/visor_impresion.html', {'documentos': documentos_finales})
-
-    return render(request, 'repositorio/repositorio-documentos.html', {
-        'plantillas': plantillas,
-        'todos_los_alumnos': todos_los_alumnos
-    })
 
 # ==========================================
 # CONFIGURACIÓN VISUAL DEL PANEL
