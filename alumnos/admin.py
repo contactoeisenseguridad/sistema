@@ -747,46 +747,48 @@ def visor_repositorio_documentos(request):
     from django.template import Template, Context
     from django.utils import timezone
     
+    # Traemos todo para los selectores
     plantillas = PlantillaDocumento.objects.all()
-    modulos = Modulo.objects.all()
+    todos_los_alumnos = Alumno.objects.all().order_by('apellidos')
     documentos_finales = []
     
-    # 1. Detectar si el usuario presionó el botón
     if request.method == "POST":
-        grupo_input = request.POST.get('grupo', '').strip()
         plantilla_id = request.POST.get('plantilla')
+        grupo_input = request.POST.get('grupo', '').strip()
+        alumnos_ids = request.POST.getlist('alumnos_ids') # Lista de IDs del selector múltiple
         
-        # DEBUG: Si no encuentra alumnos, meteremos un mensaje de error en la lista
-        inscripciones = Inscripcion.objects.filter(grupo__icontains=grupo_input)
+        plantilla = get_object_or_404(PlantillaDocumento, id=plantilla_id)
         
-        if not inscripciones.exists():
-            documentos_finales.append(f"<h2 style='color:red;'>Error: No se encontraron alumnos en el grupo '{grupo_input}'</h2>")
-        else:
-            plantilla = get_object_or_404(PlantillaDocumento, id=plantilla_id)
+        # Recolectar IDs de alumnos únicos
+        ids_a_procesar = set()
+        
+        # 1. Agregar alumnos del grupo
+        if grupo_input:
+            de_grupo = Inscripcion.objects.filter(grupo__icontains=grupo_input).values_list('alumno_id', flat=True)
+            for aid in de_grupo: ids_a_procesar.add(aid)
             
-            for ins in inscripciones:
-                alumno = ins.alumno
-                
-                # Renderizamos la plantilla con los datos base que pediste
+        # 2. Agregar alumnos seleccionados manualmente
+        for aid in alumnos_ids:
+            if aid: ids_a_procesar.add(int(aid))
+
+        # Procesar cada alumno
+        for alu_id in ids_a_procesar:
+            alumno = Alumno.objects.filter(id=alu_id).first()
+            if alumno:
                 t = Template(plantilla.cuerpo_html)
                 c = Context({
                     'nombres': alumno.nombres,
                     'apellidos': alumno.apellidos,
                     'rut': alumno.rut,
-                    'grupo': ins.grupo,
                     'fecha_hoy': timezone.now().strftime('%d/%m/%Y'),
                 })
                 documentos_finales.append(t.render(c))
         
-        # 2. SALIDA CRITICA: Aquí enviamos los resultados al visor
-        return render(request, 'repositorio/visor_impresion.html', {
-            'documentos': documentos_finales,
-        })
+        return render(request, 'repositorio/visor_impresion.html', {'documentos': documentos_finales})
 
-    # 3. CARGA INICIAL: Si solo entra a ver la página (GET)
     return render(request, 'repositorio/repositorio-documentos.html', {
         'plantillas': plantillas,
-        'modulos': modulos
+        'todos_los_alumnos': todos_los_alumnos
     })
 
 # ==========================================
