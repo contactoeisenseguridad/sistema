@@ -743,79 +743,69 @@ class PlantillaDocumentoAdmin(admin.ModelAdmin):
 # ==========================================
 
 def visor_repositorio_documentos(request):
-    # Importaciones internas para asegurar que existan al ejecutar
-    from django.db.models import Sum
     from django.template import Template, Context
     from django.shortcuts import render, get_object_or_404
+    from django.utils import timezone
     
-    try:
-        plantillas = PlantillaDocumento.objects.all()
-        modulos = Modulo.objects.all()
-        documentos_finales = []
+    plantillas = PlantillaDocumento.objects.all()
+    modulos = Modulo.objects.all()
+    documentos_finales = []
+    
+    if request.method == "POST":
+        plantilla_id = request.POST.get('plantilla')
+        grupo_input = request.POST.get('grupo', '').strip().upper()
+        modulo_id = request.POST.get('modulo')
         
-        if request.method == "POST":
-            plantilla_id = request.POST.get('plantilla')
-            grupo_input = request.POST.get('grupo', '').strip().upper()
-            modulo_id = request.POST.get('modulo')
+        plantilla = get_object_or_404(PlantillaDocumento, id=plantilla_id)
+        modulo = get_object_or_404(Modulo, id=modulo_id)
+        
+        # 1. Buscamos las inscripciones del grupo
+        inscripciones = Inscripcion.objects.filter(grupo__icontains=grupo_input)
+        
+        for ins in inscripciones:
+            alumno = ins.alumno
             
-            plantilla = get_object_or_404(PlantillaDocumento, id=plantilla_id)
-            modulo = get_object_or_404(Modulo, id=modulo_id)
+            # 2. CALCULO BASADO SOLO EN TABLA ASISTENCIA
+            # Contamos cuántas veces aparece el alumno en este módulo para este grupo
+            total_clases = Asistencia.objects.filter(
+                alumno=alumno, 
+                modulo=modulo
+            ).count()
             
-            inscripciones = Inscripcion.objects.filter(grupo__iexact=grupo_input)
+            # Contamos cuántas de esas veces estuvo "Presente"
+            clases_presente = Asistencia.objects.filter(
+                alumno=alumno, 
+                modulo=modulo, 
+                presente=True
+            ).count()
             
-            if not inscripciones.exists():
-                from django.http import HttpResponse
-                grupos_reales = Inscripcion.objects.values_list('grupo', flat=True).distinct()[:10]
-                return HttpResponse(f"No encontré '{grupo_input}'. Grupos que existen en DB: {list(grupos_reales)}")
-                
-                # Si aún así no hay, intentamos una búsqueda parcial por si acaso
-                inscripciones = Inscripcion.objects.filter(grupo__icontains=grupo_input)            
-
-            total_horas_prog = SesionClase.objects.filter(
-                modulo=modulo, grupo=grupo_input
-            ).aggregate(total=Sum('horas_bloque'))['total'] or 0
-
-            for ins in inscripciones:
-                alumno = ins.alumno
-                horas_asis = SesionClase.objects.filter(
-                    modulo=modulo, 
-                    grupo=grupo_input,
-                    asistencia__alumno=alumno,
-                    asistencia__presente=True
-                ).aggregate(total=Sum('horas_bloque'))['total'] or 0
-                
-                pct = round((horas_asis / total_horas_prog * 100), 1) if total_horas_prog > 0 else 0
-                
-                t = Template(plantilla.cuerpo_html)
-                c = Context({
-                    'nombres': alumno.nombres,
-                    'apellidos': alumno.apellidos,
-                    'rut': alumno.rut,
-                    'grupo': grupo_input,
-                    'modulo_nombre': modulo.nombre,
-                    'horas_totales': total_horas_prog,
-                    'horas_asistidas': horas_asis,
-                    'asistencia_modulo': f"{pct}%",
-                    'fecha_hoy': timezone.now().strftime('%d/%m/%Y'),
-                })
-                
-                html_personalizado = t.render(c)
-                documentos_finales.append(html_personalizado)
-
-            return render(request, 'def visor_repositorio_documentos(', {
-                'documentos': documentos_finales,
+            # Calcular porcentaje
+            pct = round((clases_presente / total_clases * 100), 1) if total_clases > 0 else 0
+            
+            # 3. RENDERIZAR EL HTML
+            t = Template(plantilla.cuerpo_html)
+            c = Context({
+                'nombres': alumno.nombres,
+                'apellidos': alumno.apellidos,
+                'rut': alumno.rut,
+                'grupo': grupo_input,
+                'modulo_nombre': modulo.nombre,
+                'horas_totales': total_clases,       # Ahora representa total de registros
+                'horas_asistidas': clases_presente,  # Ahora representa total de presentes
+                'asistencia_modulo': f"{pct}%",
+                'fecha_hoy': timezone.now().strftime('%d/%m/%Y'),
             })
+            
+            documentos_finales.append(t.render(c))
 
-        # Si llegamos aquí es un GET (carga inicial del formulario)
-        return render(request, 'repositorio/panel_generador.html', {
-            'plantillas': plantillas,
-            'modulos': modulos
+        return render(request, 'repositorio/visor_impresion.html', {
+            'documentos': documentos_finales,
         })
 
-    except Exception as e:
-        # Si algo falla, lo mostraremos en una página simple en lugar del Error 500
-        from django.http import HttpResponse
-        return HttpResponse(f"Error detectado en el Repositorio: {str(e)}")
+    return render(request, 'repositorio/repositorio-documentos.html', {
+        'plantillas': plantillas, 
+        'modulos': modulos
+    })
 
 # ==========================================
 # CONFIGURACIÓN VISUAL DEL PANEL
