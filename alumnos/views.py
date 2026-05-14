@@ -461,7 +461,7 @@ def visor_repositorio_documentos(request):
             'modulos': modulos
         })
 
-    return render(request, 'repositorio/panel_generador.html', {
+    return render(request, 'repositorio/repositorio-documentos.html', {
         'plantillas': plantillas,
         'modulos': modulos
     })

@@ -794,7 +794,7 @@ def visor_repositorio_documentos(request):
                 html_personalizado = t.render(c)
                 documentos_finales.append(html_personalizado)
 
-            return render(request, 'repositorio/visor_impresion.html', {
+            return render(request, 'def visor_repositorio_documentos(', {
                 'documentos': documentos_finales,
             })
 
