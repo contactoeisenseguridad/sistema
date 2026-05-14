@@ -743,66 +743,71 @@ class PlantillaDocumentoAdmin(admin.ModelAdmin):
 # ==========================================
 
 def visor_repositorio_documentos(request):
-    plantillas = PlantillaDocumento.objects.all()
-    modulos = Modulo.objects.all()
-    documentos_finales = []
+    # Importaciones internas para asegurar que existan al ejecutar
+    from django.db.models import Sum
+    from django.template import Template, Context
+    from django.shortcuts import render, get_object_or_404
     
-    if request.method == "POST":
-        plantilla_id = request.POST.get('plantilla')
-        grupo_input = request.POST.get('grupo').strip().upper()
-        modulo_id = request.POST.get('modulo')
+    try:
+        plantillas = PlantillaDocumento.objects.all()
+        modulos = Modulo.objects.all()
+        documentos_finales = []
         
-        plantilla = get_object_or_404(PlantillaDocumento, id=plantilla_id)
-        modulo = get_object_or_404(Modulo, id=modulo_id)
-        
-        # Buscamos a los alumnos del grupo
-        inscripciones = Inscripcion.objects.filter(grupo=grupo_input)
-        
-        # Calcular horas totales programadas
-        total_horas_prog = SesionClase.objects.filter(
-            modulo=modulo, grupo=grupo_input
-        ).aggregate(total=Sum('horas_bloque'))['total'] or 0
-
-        for ins in inscripciones:
-            alumno = ins.alumno
+        if request.method == "POST":
+            plantilla_id = request.POST.get('plantilla')
+            grupo_input = request.POST.get('grupo', '').strip().upper()
+            modulo_id = request.POST.get('modulo')
             
-            # Calcular horas asistidas (presente=True)
-            horas_asis = SesionClase.objects.filter(
-                modulo=modulo, 
-                grupo=grupo_input,
-                asistencia__alumno=alumno,
-                asistencia__presente=True
+            plantilla = get_object_or_404(PlantillaDocumento, id=plantilla_id)
+            modulo = get_object_or_404(Modulo, id=modulo_id)
+            
+            inscripciones = Inscripcion.objects.filter(grupo=grupo_input)
+            
+            total_horas_prog = SesionClase.objects.filter(
+                modulo=modulo, grupo=grupo_input
             ).aggregate(total=Sum('horas_bloque'))['total'] or 0
-            
-            # Calcular porcentaje
-            pct = round((horas_asis / total_horas_prog * 100), 1) if total_horas_prog > 0 else 0
-            
-            # Procesar el HTML
-            from django.template import Template, Context
-            t = Template(plantilla.cuerpo_html)
-            c = Context({
-                'nombres': alumno.nombres,
-                'apellidos': alumno.apellidos,
-                'rut': alumno.rut,
-                'grupo': grupo_input,
-                'modulo_nombre': modulo.nombre,
-                'horas_totales': total_horas_prog,
-                'horas_asistidas': horas_asis,
-                'asistencia_modulo': f"{pct}%",
-                'fecha_hoy': timezone.now().strftime('%d/%m/%Y'),
-            })
-            
-            html_personalizado = t.render(c)
-            documentos_finales.append(html_personalizado)
 
-        return render(request, 'repositorio/visor_impresion.html', {
-            'documentos': documentos_finales,
+            for ins in inscripciones:
+                alumno = ins.alumno
+                horas_asis = SesionClase.objects.filter(
+                    modulo=modulo, 
+                    grupo=grupo_input,
+                    asistencia__alumno=alumno,
+                    asistencia__presente=True
+                ).aggregate(total=Sum('horas_bloque'))['total'] or 0
+                
+                pct = round((horas_asis / total_horas_prog * 100), 1) if total_horas_prog > 0 else 0
+                
+                t = Template(plantilla.cuerpo_html)
+                c = Context({
+                    'nombres': alumno.nombres,
+                    'apellidos': alumno.apellidos,
+                    'rut': alumno.rut,
+                    'grupo': grupo_input,
+                    'modulo_nombre': modulo.nombre,
+                    'horas_totales': total_horas_prog,
+                    'horas_asistidas': horas_asis,
+                    'asistencia_modulo': f"{pct}%",
+                    'fecha_hoy': timezone.now().strftime('%d/%m/%Y'),
+                })
+                
+                html_personalizado = t.render(c)
+                documentos_finales.append(html_personalizado)
+
+            return render(request, 'repositorio/visor_impresion.html', {
+                'documentos': documentos_finales,
+            })
+
+        # Si llegamos aquí es un GET (carga inicial del formulario)
+        return render(request, 'repositorio/panel_generador.html', {
+            'plantillas': plantillas,
+            'modulos': modulos
         })
 
-    return render(request, 'repositorio/panel_generador.html', {
-        'plantillas': plantillas,
-        'modulos': modulos
-    })
+    except Exception as e:
+        # Si algo falla, lo mostraremos en una página simple en lugar del Error 500
+        from django.http import HttpResponse
+        return HttpResponse(f"Error detectado en el Repositorio: {str(e)}")
 
 # ==========================================
 # CONFIGURACIÓN VISUAL DEL PANEL
