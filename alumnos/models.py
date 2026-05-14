@@ -278,3 +278,21 @@ class PlanillaSPD(models.Model):
 
     def __str__(self):
         return f"Planilla Grupo {self.grupo} - Subida: {self.fecha_subida.strftime('%d/%m/%Y')}"
+
+class PlantillaDocumento(models.Model):
+    nombre = models.CharField(max_length=100, verbose_name="Nombre del Documento")
+    # El slug sirve para identificar la plantilla en la URL (ej: contrato-matricula)
+    codigo_referencia = models.SlugField(max_length=50, unique=True, verbose_name="Código de Referencia")
+    # Aquí pegarás el código HTML de tus documentos
+    cuerpo_html = models.TextField(
+        verbose_name="Cuerpo del HTML", 
+        help_text="Usa variables como {{nombres}}, {{asistencia_modulo}}, etc."
+    )
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Plantilla de Documento"
+        verbose_name_plural = "📂 Repositorio de Plantillas"
+
+    def __str__(self):
+        return self.nombre
