@@ -457,7 +457,8 @@ def visor_repositorio_documentos(request):
             documentos_finales.append(html_personalizado)
 
         return render(request, 'repositorio/visor_impresion.html', {
-            'documentos': documentos_finales,
+            'plantillas': plantillas,
+            'modulos': modulos
         })
 
     return render(request, 'repositorio/panel_generador.html', {

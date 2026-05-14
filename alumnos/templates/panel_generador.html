@@ -17,8 +17,7 @@
     <div class="card">
         <h2>📂 Generador Masivo</h2>
         <form method="POST">
-            {% csrf_token %}
-            <label>1. Seleccionar Plantilla:</label>
+            {% csrf_token %} <label>1. Seleccionar Plantilla:</label>
             <select name="plantilla" required>
                 {% for p in plantillas %}
                     <option value="{{ p.id }}">{{ p.nombre }}</option>
