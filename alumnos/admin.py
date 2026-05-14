@@ -16,7 +16,6 @@ from django.shortcuts import render, get_object_or_404
 from django.utils import timezone
 from django.utils.html import format_html
 from django import forms
-from .models import Pago, Cuota, Alumno
 
 from .models import (
     Alumno, Inscripcion, Auditoria, Aviso, Pago, Cuota, GastoOperacional,
@@ -390,6 +389,7 @@ class AlumnoAdmin(admin.ModelAdmin):
 
     def response_add(self, request, obj, post_url_continue=None):
         return HttpResponseRedirect(f"/admin/alumnos/alumno/{obj.id}/")
+
 @admin.register(Inscripcion)
 class InscripcionAdmin(admin.ModelAdmin):
     list_display = ('alumno', 'curso', 'grupo', 'fecha_inicio', 'estado')
@@ -413,10 +413,9 @@ class InscripcionAdmin(admin.ModelAdmin):
 @admin.register(Pago)
 class PagoAdmin(admin.ModelAdmin):
     # 1. Configuración del Listado (Unificada)
-    # Se eliminó 'fecha_pago' porque no está en tus 'fields' y agregué 'inscripcion'
     list_display = ('alumno', 'formato_monto', 'metodo_pago')
     search_fields = ('alumno__nombres', 'alumno__apellidos', 'alumno__rut')
-    list_filter = ('metodo_pago',) # Eliminada fecha_pago si no existe como campo date
+    list_filter = ('metodo_pago',)
     autocomplete_fields = ['alumno']
     
     # 2. Configuración del Formulario
