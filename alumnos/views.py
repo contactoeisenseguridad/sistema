@@ -1,14 +1,14 @@
 from datetime import datetime
-from django.contrib.auth.decorators import login_required, permission_required, user_passes_test # 👈 Asegúrate que diga user_passes_test
+from django.contrib.auth.decorators import login_required, permission_required, user_passes_test
 from django.shortcuts import render, get_object_or_404, redirect
 from django.http import HttpResponse
 from django.contrib import messages
-from django.core.mail import send_mail, EmailMessage # 👈 Importamos EmailMessage para adjuntos
+from django.core.mail import send_mail, EmailMessage
 from django.core.mail import send_mail
 from django.conf import settings
 from django.utils import timezone
 from django.db.models import Sum
-import os # 👈 Importamos os para buscar los PDFs
+import os
 from .models import Alumno, Inscripcion, PlantillaDocumento, SesionClase, Asistencia, Modulo
 from django.template import Template, Context
 
@@ -186,30 +186,33 @@ def carga_masiva_alumnos(request):
     return render(request, 'carga_masiva.html', {'resultado': resultado})
 
 # ==========================================
-# 🌐 NUEVO: PORTAL DE ASISTENCIA Y FISCALIZACIÓN
+# 🌐 PORTAL DE ASISTENCIA Y FISCALIZACIÓN
 # ==========================================
 
 @login_required
 def portal_asistencia(request):
-    try:
-        perfil = request.user.perfilusuario
-    except Exception:
+    es_admin = request.user.is_superuser
+    perfil = getattr(request.user, 'perfilusuario', None)
+    
+    # Si no tiene perfil configurado y no es administrador, bloqueamos el acceso
+    if not perfil and not es_admin:
         return render(request, 'error_acceso.html', {'error': 'Usuario sin Perfil configurado.'})
 
     modulos = Modulo.objects.all()
-    # Contexto base
     context = {
         'modulos': modulos, 
         'perfil': perfil, 
-        'hoy': timezone.now().date()
+        'hoy': timezone.now().date(),
+        'es_admin': es_admin
     }
 
     if request.method == "POST":
-        # 1. Validación de PIN (Seguridad de acceso)
-        pin_ingresado = request.POST.get('pin_seguridad')
-        if pin_ingresado != perfil.pin:
-            messages.error(request, "PIN de seguridad incorrecto. Verifique sus credenciales.")
-            return render(request, 'portal_asistencia.html', context)
+        # 1. Validación de PIN (El superusuario se salta esta medida por comodidad)
+        if not es_admin:
+            pin_ingresado = request.POST.get('pin_seguridad')
+            if pin_ingresado != perfil.pin:
+                messages.error(request, "PIN de seguridad incorrecto. Verifique sus credenciales.")
+                return render(request, 'portal_asistencia.html', context)
 
         # 2. Rescate de datos del formulario
         modulo_id = request.POST.get('modulo')
@@ -221,21 +224,26 @@ def portal_asistencia(request):
 
         modulo_obj = get_object_or_404(Modulo, id=modulo_id)
         
-        # 3. Validar si existe sesión para hoy
-        sesion = SesionClase.objects.filter(
-            grupo=grupo_input, 
-            modulo=modulo_obj, 
-            fecha=timezone.now().date()
-        ).first()
+        # 3. Validar Sesión de Clase (Si es admin, busca cualquier fecha. Si es relator, restringe a hoy)
+        filtro_sesion = {'grupo': grupo_input, 'modulo': modulo_obj}
+        if not es_admin:
+            filtro_sesion['fecha'] = timezone.now().date()
 
+        # Traemos la sesión basándonos en las reglas anteriores
+        sesion = SesionClase.objects.filter(**filtro_sesion).first()
+
+        # Si el administrador busca una jornada fuera de fecha y no existe en absoluto
         if not sesion:
-            messages.error(request, f"No hay clase programada hoy para {grupo_input} en {modulo_obj.nombre}.")
+            if es_admin:
+                messages.error(request, f"No existe ninguna sesión registrada para el grupo {grupo_input} en el módulo {modulo_obj.nombre}.")
+            else:
+                messages.error(request, f"No hay clase programada hoy para {grupo_input} en {modulo_obj.nombre}.")
             return render(request, 'portal_asistencia.html', context)
 
-        # --- CASO A: GUARDAR ASISTENCIA (Solo Relatores) ---
+        # --- CASO A: GUARDAR ASISTENCIA ---
         if 'btn_guardar' in request.POST:
-            if perfil.rol != 'RELATOR':
-                messages.error(request, "Acceso denegado: Solo los Relatores pueden registrar asistencia.")
+            if not es_admin and (perfil and perfil.rol != 'RELATOR'):
+                messages.error(request, "Acceso denegado: Solo personal autorizado puede registrar asistencia.")
                 return redirect('portal_asistencia')
 
             alumnos_inscritos = Alumno.objects.filter(inscripciones__grupo=grupo_input).distinct()
@@ -245,61 +253,56 @@ def portal_asistencia(request):
                 estado = request.POST.get(f'asistencia_{alumno.id}')
                 es_presente = (estado == 'presente')
 
-                # 🔍 LÓGICA CLAVE: Verificar estado anterior para evitar correos duplicados
-                asistencia_previa = Asistencia.objects.filter(alumno=alumno, sesion=sesion).first()
+                # Buscamos usando el campo correcto: 'sesion_clase'
+                asistencia_previa = Asistencia.objects.filter(alumno=alumno, sesion_clase=sesion).first()
                 
-                # Determinamos si hay que notificar:
-                # Si no existía registro previo O si el estado de presencia cambió
                 debe_notificar = False
                 if not asistencia_previa:
                     debe_notificar = True
                 elif asistencia_previa.presente != es_presente:
                     debe_notificar = True
 
-                # Guardamos o actualizamos en BD
+                # Guardamos o actualizamos en BD amarrando a 'sesion_clase'
                 Asistencia.objects.update_or_create(
                     alumno=alumno, 
-                    sesion=sesion,
+                    sesion_clase=sesion,
                     defaults={'presente': es_presente}
                 )
 
-                # Envío de correo solo si hubo un cambio real
-                if debe_notificar:
+                if debe_notificar and alumno.correo:
                     asunto = f"Registro Asistencia - {modulo_obj.nombre}"
                     estado_txt = "PRESENTE" if es_presente else "AUSENTE"
                     msg = (f"Estimado(a) {alumno.nombres} {alumno.apellidos}:\n\n"
-                           f"Le informamos que su asistencia para hoy {sesion.fecha} "
+                           f"Le informamos que su asistencia para la sesión del día {sesion.fecha} "
                            f"en el módulo {modulo_obj.nombre} ha sido registrada como: {estado_txt}.\n\n"
-                           f"Si existe algún error, contacte a su relator o escriba a contacto@otecuno.cl")
+                           f"Si existe algún error, contacte a la coordinación o escriba a contacto@otecuno.cl")
                     
                     send_mail(asunto, msg, settings.DEFAULT_FROM_EMAIL, [alumno.correo], fail_silently=True)
                     correos_enviados += 1
 
-            messages.success(request, f"Asistencia de {grupo_input} actualizada. Se enviaron {correos_enviados} notificaciones de cambios.")
-            # Al terminar de guardar, redirigimos o refrescamos la vista para mostrar los checks guardados
+            messages.success(request, f"Asistencia de {grupo_input} actualizada. Se enviaron {correos_enviados} notificaciones por email.")
             return redirect(f'/asistencia/?grupo={grupo_input}&modulo={modulo_id}')
 
-        # --- CASO B: CARGAR LISTADO (Relator o Fiscalizador) ---
+        # --- CASO B: CARGAR LISTADO ---
         alumnos = Alumno.objects.filter(inscripciones__grupo=grupo_input).distinct().order_by('apellidos')
         
-        # Mapeamos la asistencia actual para que el HTML marque los Radio Buttons correspondientes
-        asistencias_actuales = Asistencia.objects.filter(sesion=sesion)
+        # Mapeamos usando 'sesion_clase'
+        asistencias_actuales = Asistencia.objects.filter(sesion_clase=sesion)
         mapa_asistencia = {a.alumno_id: a.presente for a in asistencias_actuales}
         for a in alumnos:
             a.asistencia_actual = mapa_asistencia.get(a.id, None)
         
         context.update({
             'alumnos': alumnos,
-            'grupo_seleccionado': grupo_input,
+            'grupo_seleccionado': group_val if 'group_val' in locals() else grupo_input,
             'modulo_seleccionado': modulo_obj,
             'sesion': sesion,
             'mapa_asistencia': mapa_asistencia,
-            'es_fiscalizador': (perfil.rol == 'FISCALIZADOR')
+            'es_fiscalizador': (perfil and perfil.rol == 'FISCALIZADOR')
         })
 
     return render(request, 'portal_asistencia.html', context)
 
-# Para que solo los administradores o personal autorizado puedan mandar correos masivos
 @login_required
 @user_passes_test(lambda u: u.is_staff)
 def buzon_masivo(request):
@@ -406,10 +409,6 @@ def buzon_masivo(request):
     return render(request, 'buzon_masivo.html', {'grupos': grupos})
 
 def visor_repositorio_documentos(request):
-    from django.shortcuts import render, get_object_or_404
-    from django.template import Template, Context
-    from django.utils import timezone
-    from .models import Alumno, PlantillaDocumento, Inscripcion
 
     plantillas = PlantillaDocumento.objects.all()
     todos_los_alumnos = Alumno.objects.all().order_by('apellidos')
@@ -421,8 +420,6 @@ def visor_repositorio_documentos(request):
         alumnos_ids = request.POST.getlist('alumnos_ids')
 
         plantilla = get_object_or_404(PlantillaDocumento, id=plantilla_id)
-
-        # Unificamos alumnos
         ids_a_procesar = set()
 
         if grupo_input:
