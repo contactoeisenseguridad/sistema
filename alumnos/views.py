@@ -224,23 +224,23 @@ def portal_asistencia(request):
 
         modulo_obj = get_object_or_404(Modulo, id=modulo_id)
         
-        # 3. Validar Sesión de Clase (Si es admin, busca cualquier fecha. Si es relator, restringe a hoy)
+        # 3. Validar Sesión de Clase (Si es admin, trae la última de ese grupo/módulo. Si es relator, solo hoy)
         filtro_sesion = {'grupo': grupo_input, 'modulo': modulo_obj}
         if not es_admin:
             filtro_sesion['fecha'] = timezone.now().date()
 
-        # Traemos la sesión basándonos en las reglas anteriores
-        sesion = SesionClase.objects.filter(**filtro_sesion).first()
+        # Buscamos la sesión correspondiente
+        sesion = SesionClase.objects.filter(**filtro_sesion).order_by('-fecha').first()
 
-        # Si el administrador busca una jornada fuera de fecha y no existe en absoluto
+        # Si no existe en absoluto
         if not sesion:
             if es_admin:
-                messages.error(request, f"No existe ninguna sesión registrada para el grupo {grupo_input} en el módulo {modulo_obj.nombre}.")
+                messages.error(request, f"No existe ninguna sesión registrada en el calendario para el grupo {grupo_input} en el módulo {modulo_obj.nombre}.")
             else:
                 messages.error(request, f"No hay clase programada hoy para {grupo_input} en {modulo_obj.nombre}.")
             return render(request, 'portal_asistencia.html', context)
 
-        # --- CASO A: GUARDAR ASISTENCIA ---
+        # --- CASO A: GUARDAR ASISTENCIA (Botón Guardar) ---
         if 'btn_guardar' in request.POST:
             if not es_admin and (perfil and perfil.rol != 'RELATOR'):
                 messages.error(request, "Acceso denegado: Solo personal autorizado puede registrar asistencia.")
@@ -253,8 +253,8 @@ def portal_asistencia(request):
                 estado = request.POST.get(f'asistencia_{alumno.id}')
                 es_presente = (estado == 'presente')
 
-                # Buscamos usando el campo correcto: 'sesion_clase'
-                asistencia_previa = Asistencia.objects.filter(alumno=alumno, sesion_clase=sesion).first()
+                # 💡 CORRECCIÓN AQUÍ: Volvemos a usar 'sesion' que es el campo real en tu BD
+                asistencia_previa = Asistencia.objects.filter(alumno=alumno, sesion=sesion).first()
                 
                 debe_notificar = False
                 if not asistencia_previa:
@@ -262,10 +262,10 @@ def portal_asistencia(request):
                 elif asistencia_previa.presente != es_presente:
                     debe_notificar = True
 
-                # Guardamos o actualizamos en BD amarrando a 'sesion_clase'
+                # 💡 CORRECCIÓN AQUÍ: Guardamos usando el campo real 'sesion'
                 Asistencia.objects.update_or_create(
                     alumno=alumno, 
-                    sesion_clase=sesion,
+                    sesion=sesion,
                     defaults={'presente': es_presente}
                 )
 
@@ -283,18 +283,18 @@ def portal_asistencia(request):
             messages.success(request, f"Asistencia de {grupo_input} actualizada. Se enviaron {correos_enviados} notificaciones por email.")
             return redirect(f'/asistencia/?grupo={grupo_input}&modulo={modulo_id}')
 
-        # --- CASO B: CARGAR LISTADO ---
+        # --- CASO B: CARGAR LISTADO EN PANTALLA ---
         alumnos = Alumno.objects.filter(inscripciones__grupo=grupo_input).distinct().order_by('apellidos')
         
-        # Mapeamos usando 'sesion_clase'
-        asistencias_actuales = Asistencia.objects.filter(sesion_clase=sesion)
+        # 💡 CORRECCIÓN AQUÍ: Filtramos usando el campo real 'sesion'
+        asistencias_actuales = Asistencia.objects.filter(sesion=sesion)
         mapa_asistencia = {a.alumno_id: a.presente for a in asistencias_actuales}
         for a in alumnos:
             a.asistencia_actual = mapa_asistencia.get(a.id, None)
         
         context.update({
             'alumnos': alumnos,
-            'grupo_seleccionado': group_val if 'group_val' in locals() else grupo_input,
+            'grupo_seleccionado': grupo_input,
             'modulo_seleccionado': modulo_obj,
             'sesion': sesion,
             'mapa_asistencia': mapa_asistencia,
