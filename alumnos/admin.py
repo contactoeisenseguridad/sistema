@@ -522,19 +522,11 @@ class SesionClaseAdmin(admin.ModelAdmin):
 
 @admin.register(Asistencia)
 class AsistenciaAdmin(admin.ModelAdmin):
-    # Columnas calculadas para ver la asistencia de forma clara y fácil
     list_display = ('get_alumno_nombre', 'get_alumno_rut', 'get_grupo_codigo', 'get_sesion_info', 'presente')
-    
-    # Filtros laterales para agrupar las asistencias por Grupo y por Estado
-    list_filter = ('sesion_clase__grupo', 'presente')
-    
-    # Buscador inteligente de asistencias
-    search_fields = ('alumno__apellidos', 'alumno__nombres', 'alumno__rut', 'sesion_clase__grupo')
-    
-    # Optimización para las llaves foráneas correspondientes a Asistencia
-    raw_id_fields = ('alumno', 'sesion_clase')
+    list_filter = ('sesion__grupo', 'presente')
+    search_fields = ('alumno__apellidos', 'alumno__nombres', 'alumno__rut', 'sesion__grupo')
+    raw_id_fields = ('alumno', 'sesion')
 
-    # Métodos seguros para mostrar los datos relacionales sin romper la página
     def get_alumno_nombre(self, obj):
         try:
             return f"{obj.alumno.apellidos}, {obj.alumno.nombres}".upper()
@@ -551,16 +543,16 @@ class AsistenciaAdmin(admin.ModelAdmin):
 
     def get_grupo_codigo(self, obj):
         try:
-            return obj.sesion_clase.grupo
+            return obj.sesion.grupo
         except Exception:
             return "-"
     get_grupo_codigo.short_description = 'Grupo'
 
     def get_sesion_info(self, obj):
         try:
-            return f"{obj.sesion_clase.fecha.strftime('%d/%m/%Y')} | {obj.sesion_clase.modulo.nombre}"
+            return f"{obj.sesion.fecha.strftime('%d/%m/%Y')} | {obj.sesion.modulo.nombre}"
         except Exception:
-            return str(obj.sesion_clase)
+            return str(obj.sesion)
     get_sesion_info.short_description = 'Sesión de Clase'
 
 @admin.register(PlanillaSPD)
@@ -603,14 +595,13 @@ class PlanillaSPDAdmin(admin.ModelAdmin):
                             relator_obj = None
                             if relator_val:
                                 nombre_busqueda = str(relator_val).strip()
-                                # Intentamos buscar al relator. Asumiendo que tu modelo Relator tiene campo 'apellidos' o 'nombres'
-                                # Si tu modelo busca por el campo 'nombre_completo' o similar, ajusta el filtro abajo.
-                                # Buscaremos si el texto del Excel coincide o está contenido en sus datos:
-                                from .models import Relator # Asegúrate de que el modelo esté importado
-                                relator_obj = Relator.objects.filter(
-                                    apellidos__icontains=nombre_busqueda
-                                ).first() or Relator.objects.filter(
-                                    nombres__icontains=nombre_busqueda
+                                                                
+                                relator_obj = User.objects.filter(
+                                    first_name__icontains=nombre_busqueda
+                                ).first() or User.objects.filter(
+                                    last_name__icontains=nombre_busqueda
+                                ).first() or User.objects.filter(
+                                    username__icontains=nombre_busqueda
                                 ).first()
                             
                             # 3. Creamos la Sesión de Clase incluyendo el campo 'relator'
