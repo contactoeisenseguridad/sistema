@@ -505,22 +505,19 @@ class ModuloAdmin(admin.ModelAdmin):
 
 @admin.register(SesionClase)
 class SesionClaseAdmin(admin.ModelAdmin):
+    # Organiza por línea de tiempo arriba
     date_hierarchy = 'fecha'
     
-    list_display = ('fecha', 'bloque_horario', 'modulo', 'grupo')
-    list_filter = ('sesion_clase__grupo', 'sesion_clase__modulo', 'presente')
-    search_fields = ('alumno__apellidos', 'alumno__nombres', 'alumno__rut', 'sesion_clase__grupo')
-    ordering = ('fecha', 'bloque_horario')
-    raw_id_fields = ('alumno', 'sesion_clase')
-
-    def get_grupo(self, obj):
-        return obj.sesion_clase.grupo
-    get_grupo.short_description = 'Código Grupo'
-    get_grupo.admin_order_field = 'sesion_clase__grupo'
-
-    def get_rut(self, obj):
-        return obj.alumno.rut
-    get_rut.short_description = 'RUT Alumno'
+    # Columnas que pertenecen estrictamente a una Sesión de Clase (¡Incluyendo el Relator!)
+    list_display = ('fecha', 'bloque_horario', 'modulo', 'grupo', 'relator')
+    
+    # Filtros laterales correctos para las clases
+    list_filter = ('grupo', 'modulo', 'relator')
+    
+    # Buscador de clases por grupo o nombre del módulo
+    search_fields = ('grupo', 'modulo__nombre')
+    
+    ordering = ('-fecha', 'bloque_horario')
 
 
 @admin.register(Asistencia)
