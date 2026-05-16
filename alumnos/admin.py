@@ -522,34 +522,19 @@ class SesionClaseAdmin(admin.ModelAdmin):
 
 @admin.register(Asistencia)
 class AsistenciaAdmin(admin.ModelAdmin):
-    
+    # Columnas calculadas para ver la asistencia de forma clara y fácil
     list_display = ('get_alumno_nombre', 'get_alumno_rut', 'get_grupo_codigo', 'get_sesion_info', 'presente')
+    
+    # Filtros laterales para agrupar las asistencias por Grupo y por Estado
     list_filter = ('sesion_clase__grupo', 'presente')
+    
+    # Buscador inteligente de asistencias
     search_fields = ('alumno__apellidos', 'alumno__nombres', 'alumno__rut', 'sesion_clase__grupo')
+    
+    # Optimización para las llaves foráneas correspondientes a Asistencia
     raw_id_fields = ('alumno', 'sesion_clase')
 
-    def save_model(self, request, obj, form, change):
-        
-        if change:
-            super().save_model(request, obj, form, change)
-            estado_texto = "PRESENTE" if obj.presente else "AUSENTE"
-            try:
-                send_mail(
-                    subject='Actualización de Asistencia - OTEC UNO',
-                    message=f'Estimado(a) {obj.alumno.nombres}:\n\n'
-                            f'Se ha realizado una actualización manual en su registro de asistencia '
-                            f'del día {obj.sesion_clase.fecha} ({obj.sesion_clase.modulo.nombre}).\n'
-                            f'Su nuevo estado es: {estado_texto}.\n\n'
-                            f'Ante cualquier duda, escriba a contacto@otecuno.cl',
-                    from_email=settings.DEFAULT_FROM_EMAIL,
-                    recipient_list=[obj.alumno.correo],
-                    fail_silently=True,
-                )
-            except:
-                pass
-        else:
-            super().save_model(request, obj, form, change)
-
+    # Métodos seguros para mostrar los datos relacionales sin romper la página
     def get_alumno_nombre(self, obj):
         try:
             return f"{obj.alumno.apellidos}, {obj.alumno.nombres}".upper()
@@ -577,7 +562,6 @@ class AsistenciaAdmin(admin.ModelAdmin):
         except Exception:
             return str(obj.sesion_clase)
     get_sesion_info.short_description = 'Sesión de Clase'
-
 
 @admin.register(PlanillaSPD)
 class PlanillaSPDAdmin(admin.ModelAdmin):
