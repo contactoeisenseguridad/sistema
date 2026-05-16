@@ -525,13 +525,14 @@ class SesionClaseAdmin(admin.ModelAdmin):
 
 @admin.register(Asistencia)
 class AsistenciaAdmin(admin.ModelAdmin):
-    # Quitamos 'fecha_modificacion' de la lista
-    list_display = ('alumno', 'get_rut', 'get_grupo', 'sesion_clase', 'presente') 
-    list_filter = ('presente', 'sesion__grupo', 'sesion__fecha')
-    search_fields = ('alumno__rut', 'alumno__apellidos')
+    
+    list_display = ('get_alumno_nombre', 'get_alumno_rut', 'get_grupo_codigo', 'get_sesion_info', 'presente')
+    list_filter = ('sesion_clase__grupo', 'presente')
+    search_fields = ('alumno__apellidos', 'alumno__nombres', 'alumno__rut', 'sesion_clase__grupo')
+    raw_id_fields = ('alumno', 'sesion_clase')
 
     def save_model(self, request, obj, form, change):
-        # Si el Superusuario cambia la asistencia, enviamos el correo de aviso
+        
         if change:
             super().save_model(request, obj, form, change)
             estado_texto = "PRESENTE" if obj.presente else "AUSENTE"
@@ -540,7 +541,7 @@ class AsistenciaAdmin(admin.ModelAdmin):
                     subject='Actualización de Asistencia - OTEC UNO',
                     message=f'Estimado(a) {obj.alumno.nombres}:\n\n'
                             f'Se ha realizado una actualización manual en su registro de asistencia '
-                            f'del día {obj.sesion.fecha} ({obj.sesion.modulo.nombre}).\n'
+                            f'del día {obj.sesion_clase.fecha} ({obj.sesion_clase.modulo.nombre}).\n'
                             f'Su nuevo estado es: {estado_texto}.\n\n'
                             f'Ante cualquier duda, escriba a contacto@otecuno.cl',
                     from_email=settings.DEFAULT_FROM_EMAIL,
@@ -551,6 +552,34 @@ class AsistenciaAdmin(admin.ModelAdmin):
                 pass
         else:
             super().save_model(request, obj, form, change)
+
+    def get_alumno_nombre(self, obj):
+        try:
+            return f"{obj.alumno.apellidos}, {obj.alumno.nombres}".upper()
+        except Exception:
+            return str(obj.alumno)
+    get_alumno_nombre.short_description = 'Alumno'
+
+    def get_alumno_rut(self, obj):
+        try:
+            return obj.alumno.rut
+        except Exception:
+            return "-"
+    get_alumno_rut.short_description = 'RUT'
+
+    def get_grupo_codigo(self, obj):
+        try:
+            return obj.sesion_clase.grupo
+        except Exception:
+            return "-"
+    get_grupo_codigo.short_description = 'Grupo'
+
+    def get_sesion_info(self, obj):
+        try:
+            return f"{obj.sesion_clase.fecha.strftime('%d/%m/%Y')} | {obj.sesion_clase.modulo.nombre}"
+        except Exception:
+            return str(obj.sesion_clase)
+    get_sesion_info.short_description = 'Sesión de Clase'
 
 
 @admin.register(PlanillaSPD)
