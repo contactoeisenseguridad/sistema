@@ -240,6 +240,12 @@ def portal_asistencia(request):
                 messages.error(request, f"No hay clase programada hoy para {grupo_input} en {modulo_obj.nombre}.")
             return render(request, 'portal_asistencia.html', context)
 
+        # 🔍 DETECTOR INTELIGENTE DE CAMPOS (Evita el Error 500 de base de datos)
+        # Averiguamos dinámicamente si el modelo Asistencia usa el nombre 'sesion' o 'sesion_clase'
+        campo_sesion = 'sesion'
+        if not hasattr(Asistencia, 'sesion') and hasattr(Asistencia, 'sesion_clase'):
+            campo_sesion = 'sesion_clase'
+
         # --- CASO A: GUARDAR ASISTENCIA (Botón Guardar) ---
         if 'btn_guardar' in request.POST:
             if not es_admin and (perfil and perfil.rol != 'RELATOR'):
@@ -253,8 +259,9 @@ def portal_asistencia(request):
                 estado = request.POST.get(f'asistencia_{alumno.id}')
                 es_presente = (estado == 'presente')
 
-                # 💡 CORRECCIÓN AQUÍ: Volvemos a usar 'sesion' que es el campo real en tu BD
-                asistencia_previa = Asistencia.objects.filter(alumno=alumno, sesion=sesion).first()
+                # Armamos los filtros dinámicos según el campo real detectado
+                filtro_asistencia = {'alumno': alumno, campo_sesion: sesion}
+                asistencia_previa = Asistencia.objects.filter(**filtro_asistencia).first()
                 
                 debe_notificar = False
                 if not asistencia_previa:
@@ -262,11 +269,12 @@ def portal_asistencia(request):
                 elif asistencia_previa.presente != es_presente:
                     debe_notificar = True
 
-                # 💡 CORRECCIÓN AQUÍ: Guardamos usando el campo real 'sesion'
+                # Guardamos o actualizamos de forma segura en la BD
+                valores_update = {'presente': es_presente}
                 Asistencia.objects.update_or_create(
                     alumno=alumno, 
-                    sesion=sesion,
-                    defaults={'presente': es_presente}
+                    **{campo_sesion: sesion},
+                    defaults=valores_update
                 )
 
                 if debe_notificar and alumno.correo:
@@ -286,8 +294,10 @@ def portal_asistencia(request):
         # --- CASO B: CARGAR LISTADO EN PANTALLA ---
         alumnos = Alumno.objects.filter(inscripciones__grupo=grupo_input).distinct().order_by('apellidos')
         
-        # 💡 CORRECCIÓN AQUÍ: Filtramos usando el campo real 'sesion'
-        asistencias_actuales = Asistencia.objects.filter(sesion=sesion)
+        # Filtramos las asistencias actuales usando el campo dinámico detectado
+        filtro_actuales = {campo_sesion: sesion}
+        asistencias_actuales = Asistencia.objects.filter(**filtro_actuales)
+        
         mapa_asistencia = {a.alumno_id: a.presente for a in asistencias_actuales}
         for a in alumnos:
             a.asistencia_actual = mapa_asistencia.get(a.id, None)
