@@ -476,3 +476,30 @@ def visor_repositorio_documentos(request):
         'plantillas': plantillas,
         'todos_los_alumnos': todos_los_alumnos
     })
+
+def tomar_asistencia(request, sesion_id):
+    from django.shortcuts import render, get_object_or_404
+    from django.utils import timezone
+    from django.contrib import messages
+    from .models import SesionClase, Asistencia
+    
+    sesion = get_object_or_404(SesionClase, id=sesion_id)
+    hoy = timezone.now().date()
+    
+    # TRUCO MAESTRO: Si es superusuario, ignora cualquier bloqueo de fecha
+    es_admin = request.user.is_superuser
+    
+    if not es_admin:
+        # Aquí van tus reglas normales para relatores
+        if sesion.fecha > hoy:
+            return render(request, 'asistencia/error.html', {'mensaje': "No puedes pasar asistencia en una sesión futura."})
+        elif sesion.fecha < hoy:
+            # Si bloqueas las pasadas, ponlo aquí
+            pass
+
+    if request.method == "POST":
+        # ... (Tu lógica actual para guardar los presentes/ausentes) ...
+        messages.success(request, "Asistencia actualizada correctamente.")
+        
+    # Obtener alumnos inscritos para mostrar el listado
+    # ...

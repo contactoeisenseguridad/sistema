@@ -506,17 +506,27 @@ class ModuloAdmin(admin.ModelAdmin):
 @admin.register(SesionClase)
 class SesionClaseAdmin(admin.ModelAdmin):
     date_hierarchy = 'fecha'
-    # Solo lo esencial: Fecha, Hora, Módulo y Grupo
+    
     list_display = ('fecha', 'bloque_horario', 'modulo', 'grupo')
-    list_filter = ('grupo', 'modulo')
-    search_fields = ('modulo__nombre', 'grupo')
+    list_filter = ('sesion_clase__grupo', 'sesion_clase__modulo', 'presente')
+    search_fields = ('alumno__apellidos', 'alumno__nombres', 'alumno__rut', 'sesion_clase__grupo')
     ordering = ('fecha', 'bloque_horario')
+    raw_id_fields = ('alumno', 'sesion_clase')
+
+    def get_grupo(self, obj):
+        return obj.sesion_clase.grupo
+    get_grupo.short_description = 'Código Grupo'
+    get_grupo.admin_order_field = 'sesion_clase__grupo'
+
+    def get_rut(self, obj):
+        return obj.alumno.rut
+    get_rut.short_description = 'RUT Alumno'
 
 
 @admin.register(Asistencia)
 class AsistenciaAdmin(admin.ModelAdmin):
     # Quitamos 'fecha_modificacion' de la lista
-    list_display = ('alumno', 'sesion', 'presente') 
+    list_display = ('alumno', 'get_rut', 'get_grupo', 'sesion_clase', 'presente') 
     list_filter = ('presente', 'sesion__grupo', 'sesion__fecha')
     search_fields = ('alumno__rut', 'alumno__apellidos')
 
@@ -549,6 +559,7 @@ class PlanillaSPDAdmin(admin.ModelAdmin):
     actions = ['procesar_excel_spd_action']
 
     def procesar_excel_spd_action(self, request, queryset):
+        import openpyxl
         exitos = 0
         for planilla in queryset:
             try:
@@ -578,15 +589,31 @@ class PlanillaSPDAdmin(admin.ModelAdmin):
                                 nombre=str(modulo_val).strip()
                             )
                             
-                            # 2. Creamos la Sesión de Clase
+                            # 2. IDENTIFICAR AL RELATOR (Columna E)
+                            relator_obj = None
+                            if relator_val:
+                                nombre_busqueda = str(relator_val).strip()
+                                # Intentamos buscar al relator. Asumiendo que tu modelo Relator tiene campo 'apellidos' o 'nombres'
+                                # Si tu modelo busca por el campo 'nombre_completo' o similar, ajusta el filtro abajo.
+                                # Buscaremos si el texto del Excel coincide o está contenido en sus datos:
+                                from .models import Relator # Asegúrate de que el modelo esté importado
+                                relator_obj = Relator.objects.filter(
+                                    apellidos__icontains=nombre_busqueda
+                                ).first() or Relator.objects.filter(
+                                    nombres__icontains=nombre_busqueda
+                                ).first()
+                            
+                            # 3. Creamos la Sesión de Clase incluyendo el campo 'relator'
                             SesionClase.objects.create(
                                 grupo=planilla.grupo,
                                 fecha=fecha_val,
                                 bloque_horario=str(horario_val).strip() if horario_val else "Sin Horario",
-                                modulo=mod_obj
+                                modulo=mod_obj,
+                                relator=relator_obj # 👈 ¡CON ESTO QUEDA IDENTIFICADO Y ASOCIADO!
                             )
                             exitos += 1
-                        except Exception:
+                        except Exception as row_error:
+                            # print(f"Error fila {r}: {str(row_error)}") # Descomenta si necesitas debuguear en local
                             continue
 
                 planilla.procesado = (exitos > 0)
@@ -596,12 +623,9 @@ class PlanillaSPDAdmin(admin.ModelAdmin):
                 messages.error(request, f"Error en {planilla.grupo}: {str(e)}")
 
         if exitos > 0:
-            messages.success(request, f"✅ ¡TRABAJO TERMINADO! Se cargaron {exitos} sesiones del rango B11:F33.")
+            messages.success(request, f"✅ ¡TRABAJO TERMINADO! Se cargaron {exitos} sesiones vinculando sus módulos y relatores.")
         else:
-            messages.warning(request, "No se encontraron datos válidos en el rango B11:F33 de la pestaña 'CONTENIDOS DEL CURSO'.")
-
-    procesar_excel_spd_action.short_description = "📥 Leer Excel y Generar Calendario de Clases"
-
+            messages.warning(request, "No se encontraron datos válidos en el rango B11:F33.")
 
 # ==========================================
 # 5. VISTA DEL RELATOR (ASISTENCIA)
