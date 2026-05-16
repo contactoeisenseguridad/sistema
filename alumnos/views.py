@@ -410,60 +410,67 @@ def visor_repositorio_documentos(request):
     from django.template import Template, Context
     from django.utils import timezone
     from .models import Alumno, PlantillaDocumento, Inscripcion
-    
+
     plantillas = PlantillaDocumento.objects.all()
     todos_los_alumnos = Alumno.objects.all().order_by('apellidos')
     documentos_finales = []
-    
+
     if request.method == "POST":
         plantilla_id = request.POST.get('plantilla')
         grupo_input = request.POST.get('grupo', '').strip().upper()
         alumnos_ids = request.POST.getlist('alumnos_ids')
-        
+
         plantilla = get_object_or_404(PlantillaDocumento, id=plantilla_id)
-        
+
         # Unificamos alumnos
         ids_a_procesar = set()
+
         if grupo_input:
             inscritos = Inscripcion.objects.filter(
                 grupo__iexact=grupo_input
-                ).values_list('alumno_id', flat=True)
-            for aid in inscritos: ids_a_procesar.add(aid)
+            ).values_list('alumno_id', flat=True)
+
+            for aid in inscritos:
+                ids_a_procesar.add(aid)
+
         for aid in alumnos_ids:
-            if aid: ids_a_procesar.add(int(aid))
+            if aid:
+                ids_a_procesar.add(int(aid))
 
         # Generamos documentos
         for alu_id in ids_a_procesar:
             alumno = Alumno.objects.filter(id=alu_id).first()
-            
-    if alumno:
 
-        # Buscar la inscripción más reciente del alumno
-        inscripcion = Inscripcion.objects.filter(
-            alumno=alumno
-        ).order_by('-fecha_inicio').first()
+            if alumno:
+                # Buscar la inscripción más reciente
+                inscripcion = Inscripcion.objects.filter(
+                    alumno=alumno
+                ).order_by('-fecha_inicio').first()
 
-        # Si escribieron grupo manualmente usa ese,
-        # si no, usa el grupo real del alumno
-        grupo_alumno = grupo_input or (
-            inscripcion.grupo if inscripcion else ''
-        )
+                # Usar grupo manual o grupo real
+                grupo_alumno = grupo_input or (
+                    inscripcion.grupo if inscripcion else ''
+                )
 
-        t = Template(plantilla.cuerpo_html)
+                t = Template(plantilla.cuerpo_html)
 
-        c = Context({
-            'nombres': alumno.nombres,
-            'apellidos': alumno.apellidos,
-            'rut': alumno.rut,
-            'grupo': grupo_alumno,
-            'fecha_hoy': timezone.now().strftime('%d/%m/%Y'),
-        })
+                c = Context({
+                    'nombres': alumno.nombres,
+                    'apellidos': alumno.apellidos,
+                    'rut': alumno.rut,
+                    'grupo': grupo_alumno,
+                    'fecha_hoy': timezone.now().strftime('%d/%m/%Y'),
+                })
 
-        documentos_finales.append(t.render(c))
-        
+                documentos_finales.append(t.render(c))
+
         # SI HAY DOCUMENTOS, VAMOS AL VISOR
         if documentos_finales:
-            return render(request, 'repositorio/visor_impresion.html', {'documentos': documentos_finales})
+            return render(
+                request,
+                'repositorio/visor_impresion.html',
+                {'documentos': documentos_finales}
+            )
 
     return render(request, 'repositorio/repositorio-documentos.html', {
         'plantillas': plantillas,
