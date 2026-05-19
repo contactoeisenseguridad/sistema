@@ -139,7 +139,53 @@ def enviar_a_moodle(inscripcion):
         return False, f"Falló: {str(error_general)}"
         
     try:
-        cuerpo_bienvenida = f"Estimad@ {nombres_limpios}:\n\nSu acceso a la plataforma virtual (http://virtual.otecuno.cl) ha sido habilitado.\nUsuario y Contraseña: Su RUN sin puntos (Ej: 12345678-9).\n\nSaludos,\nOTEC UNO"
+        cuerpo_bienvenida = f"""
+        Estimado(a) {nombres_limpios}:
+
+        Junto con saludarle, le damos la más cordial bienvenida a nuestra plataforma virtual de capacitación de OTEC UNO.
+
+        Su acceso al aula virtual ya se encuentra habilitado y desde este momento podrá ingresar para revisar su material de estudio, clases y recursos  asociados a su proceso de capacitación.
+
+        🔗 Acceso plataforma:
+        http://virtual.otecuno.cl
+
+        ━━━━━━━━━━━━━━━━━━
+        DATOS DE ACCESO
+        ━━━━━━━━━━━━━━━━━━
+
+        Usuario:
+        {username}
+
+        Contraseña:
+        {password}
+
+        Importante:
+        Su usuario y contraseña corresponden a su RUN sin puntos, sin guión y sin dígito verificador.
+
+        Ejemplo:
+        12.345.678-9
+        → Usuario: 12345678
+
+        ━━━━━━━━━━━━━━━━━━
+
+        Ante cualquier duda o inconveniente de acceso, puede comunicarse con nuestro equipo al correo:
+
+        📩 contacto@otecuno.cl
+
+        Adjunto a este correo encontrará material de apoyo con instrucciones de acceso a la plataforma virtual.
+
+        Agradecemos la confianza depositada en nuestra institución y le deseamos mucho éxito en este nuevo proceso de formación.
+
+        Saludos cordiales,
+
+        OTEC UNO E.I.R.L.
+        Capacitación y Formación
+        Alameda Libertador Bernardo O’Higgins 1112, Oficina 802
+        Santiago - Chile
+        www.otecuno.cl
+        """
+
+
         correo_bienvenida = EmailMessage(
             subject='Acceso a Plataforma Virtual - OTEC Uno', body=cuerpo_bienvenida,
             from_email=settings.DEFAULT_FROM_EMAIL, to=[correo_limpio],
